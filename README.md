@@ -10,4 +10,5 @@ Projeto de Redes
 
 - Colocar duvidas
 - -voce vai às aulas practicas?
-- 
+- -recebe ficheiro?
+
