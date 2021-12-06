@@ -7,17 +7,12 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include "user.hpp"
 using namespace std;
 
-#define DEFAULT_PORT 58000
-#define IPV4_SIZE 12
-#define GROUP_NUMBER 12
 
 char* DSIP;
 int DSport;
-
-
-void getDefaultPort();
 
 void verifyArguments(int numArgs, char *args[]){
     if (numArgs != 1 && numArgs != 3 && numArgs != 5){ //-n e -p sempre como argumento?
