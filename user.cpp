@@ -82,14 +82,15 @@ void parseArgs(int numArgs,char *args[]){
         }
     }
 }
-void client(char* message){
+void clientSend(char* message){
+    
     int fd,errcode;
     ssize_t n;
     socklen_t addrlen;
     struct addrinfo hints,*res;
     struct sockaddr_in addr;
     char buffer[SIZE_STRING];
-
+    
     fd=socket(AF_INET,SOCK_DGRAM,0);
     if(fd==-1)
         exit(1);
@@ -114,20 +115,71 @@ void client(char* message){
     close(fd);
 }
 
+void comRegister(char*com,int UID, char* pass){
+    char* command=(char*)malloc(sizeof(char)*SIZE_STRING);
+    sprintf(command,"%d %s",UID,pass);
+    clientSend(command);
+    
+    free(command);
+}
+void comUnregister(){
+    return;
+}
+void comLogin(){
+    return;
+}
+void comLogout(){
+    return;
+}
+void comShowUID(){
+    return;
+}
+void comExit(){
+    return;
+}
+
 void processCommands(){
-    char *com,*pass;
+    char *com,*pass,*buffer;
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
     pass=(char*) malloc(sizeof(char)*SIZE_STRING);
+    buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
+
 
     int n,UID;
-    while(true){
+    while(fgets(buffer,SIZE_STRING,stdin)){
 
-        n=sscanf("%s %d %s\n",com,UID,pass);
+        
+        n=sscanf(buffer,"%s %d %s",com,&UID,pass); //conserta
         
         if(n<1)
            continue;
+        //printf("%s %d %s\n",com,UID,pass);
+
+        if(strcmp(com,"reg")==0){
+            
+            comRegister(UID,pass);
+            
+        }
+            
+
+        else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0)
+            comUnregister();
         
-        printf("%s %d %s %d\n",com,UID,pass,n);
+        else if(strcmp(com,"login")==0)
+            comLogin();
+
+        else if(strcmp(com,"logout")==0)
+            comLogout();
+
+        else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0)
+            comShowUID();
+
+        else if(strcmp(com,"exit")==0)
+            comExit();
+
+        
+        
+        
         
         
         
