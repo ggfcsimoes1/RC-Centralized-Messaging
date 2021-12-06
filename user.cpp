@@ -115,77 +115,18 @@ void clientSend(char* message){
     close(fd);
 }
 
-void comRegister(char*com,int UID, char* pass){
-    char* command=(char*)malloc(sizeof(char)*SIZE_STRING);
-    sprintf(command,"%d %s",UID,pass);
-    clientSend(command);
-    
-    free(command);
-}
-void comUnregister(){
-    return;
-}
-void comLogin(){
-    return;
-}
-void comLogout(){
-    return;
-}
-void comShowUID(){
-    return;
-}
-void comExit(){
-    return;
-}
 
 void processCommands(){
-    char *com,*pass,*buffer;
-    com=(char*) malloc(sizeof(char)*SIZE_STRING);
-    pass=(char*) malloc(sizeof(char)*SIZE_STRING);
-    buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
+    
+    char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
 
 
-    int n,UID;
+    
     while(fgets(buffer,SIZE_STRING,stdin)){
-
-        
-        n=sscanf(buffer,"%s %d %s",com,&UID,pass); //conserta
-        
-        if(n<1)
-           continue;
-        //printf("%s %d %s\n",com,UID,pass);
-
-        if(strcmp(com,"reg")==0){
-            
-            comRegister(UID,pass);
-            
-        }
-            
-
-        else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0)
-            comUnregister();
-        
-        else if(strcmp(com,"login")==0)
-            comLogin();
-
-        else if(strcmp(com,"logout")==0)
-            comLogout();
-
-        else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0)
-            comShowUID();
-
-        else if(strcmp(com,"exit")==0)
-            comExit();
-
-        
-        
-        
-        
-        
-        
+        clientSend(buffer);
+             
     }
-    free(com);
-    free(pass);
+    
 
 
 }

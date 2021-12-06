@@ -18,12 +18,7 @@ void getDefaultIP();
 void parseArgs(int numArgs,char *args[]);
 void clientSend(char* message);
 void processCommands();
-void comRegister(int UID, char* pass);
-void comUnregister();
-void comLogin();
-void comLogout();
-void comShowUID();
-void comExit();
+
 
 
 #endif 
