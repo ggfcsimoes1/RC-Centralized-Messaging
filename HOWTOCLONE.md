@@ -4,8 +4,9 @@
 Since the repo is currently private, cloning it doesn't follow the usual formula.
 
 1. Open the shell in the directory where the project will reside (``` cd etc/etc/etc ```)
-2. Insert the command: ```git clone https://USERNAME:PASSWORD@github.com/ggfcsimoes1/RC-Centralized-Messaging.git```
-3. The repo is now cloned!
+2. Head over to https://github.com/settings/tokens/new and create a personal access token with a length of 90 days.
+3. Insert the command: ```git clone https://USERNAME:TOKEN@github.com/ggfcsimoes1/RC-Centralized-Messaging.git```
+4. The repo is now cloned!
 
 
 ## Pull instructions:
