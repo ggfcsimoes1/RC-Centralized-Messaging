@@ -8,11 +8,13 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include "user.hpp"
+
+
 using namespace std;
 
 
 char* DSIP;
-int DSport;
+char* DSport;
 
 void verifyArguments(int numArgs, char *args[]){
     if (numArgs != 1 && numArgs != 3 && numArgs != 5){ //-n e -p sempre como argumento?
@@ -56,7 +58,9 @@ void getDefaultIP(){
 }
 
 void getDefaultPort(){
-    DSport = DEFAULT_PORT + GROUP_NUMBER;
+    int port= DEFAULT_PORT + GROUP_NUMBER;
+    sprintf(DSport, "%d", port);
+    
 }
 
 
@@ -72,23 +76,77 @@ void parseArgs(int numArgs,char *args[]){
                 getDefaultPort();
         }
         else if(strcmp(args[i],"-p") == 0){
-            DSport = stoi(args[i+1]);
+            strcpy(DSport ,args[i+1]);
             if(numArgs < 5)
                 getDefaultIP();
         }
     }
 }
+void client(char* message){
+    int fd,errcode;
+    ssize_t n;
+    socklen_t addrlen;
+    struct addrinfo hints,*res;
+    struct sockaddr_in addr;
+    char buffer[SIZE_STRING];
 
+    fd=socket(AF_INET,SOCK_DGRAM,0);
+    if(fd==-1)
+        exit(1);
+    memset(&hints,0,sizeof hints);
+    hints.ai_family=AF_INET;
+    hints.ai_socktype=SOCK_DGRAM;
+
+    errcode=getaddrinfo(DSIP,DSport,&hints,&res);
+    if(errcode!=0)
+        exit(1);
+    
+    n=sendto(fd,message,sizeof(message),0,res->ai_addr,res->ai_addrlen);
+    if(n==-1)
+        exit(1);
+    addrlen=sizeof(addr);
+    
+    n=recvfrom(fd,buffer,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen);
+    if(n==-1)
+        exit(1);
+
+    freeaddrinfo(res);
+    close(fd);
+}
+
+void processCommands(){
+    char *com,*pass;
+    com=(char*) malloc(sizeof(char)*SIZE_STRING);
+    pass=(char*) malloc(sizeof(char)*SIZE_STRING);
+
+    int n,UID;
+    while(true){
+
+        n=sscanf("%s %d %s\n",com,UID,pass);
+        
+        if(n<1)
+           continue;
+        
+        printf("%s %d %s %d\n",com,UID,pass,n);
+        
+        
+        
+    }
+    free(com);
+    free(pass);
+
+
+}
 
 int main(int argc, char *argv[]){
 
     DSIP = (char*) malloc(sizeof(char)); //ip adresses have 4 bytes
-
+    DSport = (char*) malloc(sizeof(char));
 
     verifyArguments(argc, argv);
     parseArgs(argc,argv);
-    printf("%s %d\n", DSIP, DSport);
-
+    processCommands();
+    
     free(DSIP); //meter numa func
 
     return 0;
