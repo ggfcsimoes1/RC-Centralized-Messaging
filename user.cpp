@@ -12,9 +12,10 @@
 
 using namespace std;
 
-
+bool isLoggedIn = false;
 char* DSIP;
 char* DSport;
+
 
 void verifyArguments(int numArgs, char *args[]){
     if (numArgs != 1 && numArgs != 3 && numArgs != 5){ //-n e -p sempre como argumento?
@@ -82,14 +83,13 @@ void parseArgs(int numArgs,char *args[]){
         }
     }
 }
-void clientSend(char* message){
+char* clientSend(char* message){
     
     int fd,errcode;
     ssize_t n;
     socklen_t addrlen;
     struct addrinfo hints,*res;
     struct sockaddr_in addr;
-    char buffer[SIZE_STRING];
     
     fd=socket(AF_INET,SOCK_DGRAM,0);
     if(fd==-1)
@@ -102,21 +102,85 @@ void clientSend(char* message){
     if(errcode!=0)
         exit(1);
     
-    n=sendto(fd,message,sizeof(message),0,res->ai_addr,res->ai_addrlen);
+    n=sendto(fd,message,strlen(message),0,res->ai_addr,res->ai_addrlen);
     if(n==-1)
         exit(1);
     addrlen=sizeof(addr);
+
+    free(message);
+    message = (char*) malloc(sizeof(char)*SIZE_STRING);
     
-    n=recvfrom(fd,buffer,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen);
+    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen);
     if(n==-1)
         exit(1);
 
-
-    printf("%s \n", buffer);
     freeaddrinfo(res);
     close(fd);
+    return message;
 }
 
+void commandRegister(char* message){
+    char* response = clientSend(message);
+    if(strcmp("ERR\n",response)==0)
+        fprintf(stderr,"Registration error\n");
+
+    else if(strcmp("RRG OK\n",response)==0)  
+        printf("Accepted Registration!\n"); 
+
+    else if(strcmp("RRG NOK\n",response)==0)      
+        printf("Not Accepted Registration!\n"); 
+
+    else if(strcmp("RRG DUP\n",response)==0)      
+        printf("Duplicate registration!\n"); 
+    
+    else   
+        printf("Unexpected error\n");
+}
+
+void commandLogin(char* message){
+    char* response = clientSend(message);
+    if(strcmp("ERR\n",response)==0){
+        fprintf(stderr,"Login error\n");
+    }
+
+    else if(strcmp("RLO OK\n",response)==0){  
+        printf("Accepted Login!\n"); 
+        isLoggedIn = true;
+    }
+
+    else if(strcmp("RLO NOK\n",response)==0){    
+        printf("Not Accepted Login!\n");
+    }
+    else{   
+        printf("Unexpected error\n");
+    }
+}
+
+void commandLogout(char* message){
+    char* response = clientSend(message);
+    if(strcmp("ERR\n",response)==0){
+        fprintf(stderr,"Logout error\n");
+    }
+
+    else if(strcmp("ROU OK\n",response)==0){  
+        printf("Accepted Logout!\n"); 
+        isLoggedIn = false;
+    }
+
+    else if(strcmp("ROU NOK\n",response)==0){    
+        printf("Not Accepted Logout!\n");
+    }
+    else{   
+        printf("Unexpected error\n");
+    }
+}
+
+void commandShowUID(char* currentUserID){
+    if(isLoggedIn)
+        printf("User ID: %s \n", currentUserID);
+    else 
+        printf("Not logged in!\n");   
+}
 
 void processCommands(){
     
@@ -125,6 +189,7 @@ void processCommands(){
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
     pass=(char*) malloc(sizeof(char)*SIZE_STRING);
     UID=(char*) malloc(sizeof(char)*SIZE_STRING);
+    char* currentUser = (char*) malloc(sizeof(char)*SIZE_STRING);
     int n;
     
     
@@ -135,30 +200,28 @@ void processCommands(){
         if(n<1)
             continue;
 
-
         if(strcmp(com,"reg")==0){
-            printf("aaaaa");
-            sprintf(buffer, "REG %s %s", UID, pass);
-            clientSend(buffer);
+            sprintf(buffer, "REG %s %s\n", UID, pass);
+            commandRegister(buffer);
         }
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
-            sprintf(buffer, "UNR %s %s", UID, pass);
+            sprintf(buffer, "UNR %s %s\n", UID, pass);
             clientSend(buffer);
         }
             
         else if(strcmp(com,"login")==0){
-            sprintf(buffer, "LOG %s %s", UID, pass);
-            clientSend(buffer);
+            sprintf(buffer, "LOG %s %s\n", UID, pass);
+            commandLogin(buffer);
         }
 
         else if(strcmp(com,"logout")==0){
-            sprintf(buffer, "OUT %s %s", UID, pass);
-            clientSend(buffer);
+            sprintf(buffer, "OUT %s %s\n", UID, pass);
+            commandLogout(buffer);
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
-            
+            commandShowUID(currentUser);
         }
         else if(strcmp(com,"exit")==0)
             //fechar TCP
