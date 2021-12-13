@@ -3,8 +3,8 @@ Projeto de Redes
 
 ## TO-DO
 
-- [ ] Add stuff to-do
-- [ ] comentar o projeto
+- [ ] Corrigir verificação de Users existentes (verificar pasta a pasta)
+- [ ] Arranjar receção das mensagens por parte do servidor
 
 # Dúvidas
 
