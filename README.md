@@ -5,6 +5,8 @@ Projeto de Redes
 
 - [ ] Corrigir verificação de Users existentes (verificar pasta a pasta) - usar findFile()
 - [ ] Arranjar receção das mensagens por parte do servidor
+- [ ] Fazer makefile
+
 
 # Dúvidas
 
