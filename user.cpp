@@ -110,7 +110,8 @@ char* clientSend(char* message){
     free(message);
     message = (char*) malloc(sizeof(char)*SIZE_STRING);
     
-    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen);
+    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen); //nao está a receber bem do server
+    
     if(n==-1)
         exit(1);
 

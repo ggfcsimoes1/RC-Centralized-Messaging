@@ -1,22 +1,65 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
 #include <stdio.h>
+#include <iostream>
+#include <list>
+#include <iterator>
+#include <algorithm>
 
 #include "ServerUDP.hpp"
 
-#define PORT "58001"
+list <int> registeredUsers;
 
-void comRegister(int UID, char* pass){
-    char* command=(char*)malloc(sizeof(char)*SIZE_STRING);
-    
-    
-    free(command);
+using namespace std;
+
+void comRegister(char* command, int UID, char* pass){
+	
+	FILE *fp;
+	char* directory = (char*) malloc(sizeof(char)* 12);
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+
+	if ((UID/100000) != 0) 
+		sprintf(command, "RRG NOK\n");
+	else if(find(registeredUsers.begin(), registeredUsers.end(), UID) == registeredUsers.end()){
+
+			registeredUsers.push_back(UID);
+			
+
+			if(mkdir("USERS",0755) != 0) 
+				sprintf(command, "ERR\n");
+
+			sprintf(directory, "USERS/%d", UID); 
+
+			if(mkdir(directory,0755) != 0) 
+				sprintf(command, "ERR\n");
+
+			sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
+
+			if((fp = fopen(fileDirectory, "w+")) == NULL)
+				sprintf(command, "ERR\n");
+
+			
+			fprintf(fp,"%s\n",pass);
+			
+			fclose(fp);
+			
+			sprintf(command, "RRG OK\n");
+			
+			
+	}	
+	else if(find(registeredUsers.begin(), registeredUsers.end(), UID) != registeredUsers.end()) //UID in list, duplicate found
+			sprintf(command, "RRG DUP\n");
+	else sprintf(command, "RRG NOK\n");
+	free(directory);
+	free(fileDirectory);
+	
 }
 void comUnregister(){
     return;
@@ -27,64 +70,36 @@ void comLogin(){
 void comLogout(){
     return;
 }
-void comShowUID(){
-    return;
-}
-void comExit(){
-    return;
-}
 
-void processCommands(char* command){
-    char *com,*pass;
+char* processCommands(char* command){
+    char *com,*pass,*buffer;
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
     pass=(char*) malloc(sizeof(char)*SIZE_STRING);
-    
-
-
+    buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n,UID;
-    
-        
-        
+  
     n=sscanf(command,"%s %d %s",com,&UID,pass); 
         
     if(n<1)
-        return;
-        //printf("%s %d %s\n",com,UID,pass);
+		sprintf(command, "ERR\n");
+        
 
-    if(strcmp(com,"reg")==0){
-            
-        comRegister(UID,pass);
-            
+    if(strcmp(com,"REG")==0 && n==3){
+        comRegister(buffer,UID,pass);
     }
             
-
-    else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0)
+    else if(strcmp(com,"UNR")==0)
         comUnregister();
         
-    else if(strcmp(com,"login")==0)
+    else if(strcmp(com,"LOG")==0)
         comLogin();
 
-    else if(strcmp(com,"logout")==0)
+    else if(strcmp(com,"LOU")==0)
         comLogout();
 
-    else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0)
-        comShowUID();
-
-    else if(strcmp(com,"exit")==0)
-        comExit();
-
-        
-        
-        
-        
-        
-        
-    
     free(com);
     free(pass);
-	
-
-
+	return buffer;
 }
 
 
@@ -126,9 +141,10 @@ int main(){
 			fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
 		else
 			printf("sent by [%s:%s]\n",host,service);
-		write(1,"received: ",10);
-		write(1,buffer,n);
-		strcpy(buffer, "amo te barbara tinoco\n");
+
+		processCommands(buffer);
+	
+		//strcpy(buffer, "amo te barbara tinoco\n");
 		n=sendto(fd,buffer,strlen(buffer),0, (struct sockaddr*) &addr, addrlen);
 		if(n==-1)
 			exit(1);
