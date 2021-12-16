@@ -188,8 +188,8 @@ void processCommands(){
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     char *com,*pass,*UID;
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
-    pass=(char*) malloc(sizeof(char)*SIZE_STRING);
-    UID=(char*) malloc(sizeof(char)*SIZE_STRING);
+    pass=(char*) malloc(sizeof(char)*8);
+    UID=(char*) malloc(sizeof(char)*5);// HARDCODED
     char* currentUser = (char*) malloc(sizeof(char)*SIZE_STRING);
     int n;
     
@@ -197,6 +197,7 @@ void processCommands(){
     while(fgets(buffer,SIZE_STRING,stdin)){
         n=sscanf(buffer,"%s %s %s",com,UID,pass); 
         strcpy(buffer, "");
+
 
         if(n<1)
             continue;

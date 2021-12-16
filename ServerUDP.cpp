@@ -15,48 +15,48 @@
 
 #include "ServerUDP.hpp"
 
-list <int> registeredUsers;
+
 
 using namespace std;
 
-void comRegister(char* command, int UID, char* pass){
+void comRegister(char* buffer, int UID, char* pass){
 	
 	FILE *fp;
 	char* directory = (char*) malloc(sizeof(char)* 12);
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODED
+	char* path = (char*) malloc(sizeof(char)*SIZE_STRING);
+
+	sprintf(path, "USERS/%d", UID);
 
 	if ((UID/100000) != 0) 
-		sprintf(command, "RRG NOK\n");
-	else if(find(registeredUsers.begin(), registeredUsers.end(), UID) == registeredUsers.end()){
-
-			registeredUsers.push_back(UID);
-			
+		sprintf(buffer, "RRG NOK\n");
+	else if(!CFileFind::FindFile(path, 0)){
 
 			if(mkdir("USERS",0755) != 0) 
-				sprintf(command, "ERR\n");
+				sprintf(buffer, "ERR\n");
 
 			sprintf(directory, "USERS/%d", UID); 
 
 			if(mkdir(directory,0755) != 0) 
-				sprintf(command, "ERR\n");
+				sprintf(buffer, "ERR\n");
 
 			sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
 
 			if((fp = fopen(fileDirectory, "w+")) == NULL)
-				sprintf(command, "ERR\n");
+				sprintf(buffer, "ERR\n");
 
 			
 			fprintf(fp,"%s\n",pass);
 			
 			fclose(fp);
 			
-			sprintf(command, "RRG OK\n");
+			sprintf(buffer, "RRG OK\n");
 			
 			
 	}	
-	else if(find(registeredUsers.begin(), registeredUsers.end(), UID) != registeredUsers.end()) //UID in list, duplicate found
-			sprintf(command, "RRG DUP\n");
-	else sprintf(command, "RRG NOK\n");
+	else if(CFileFind::FindFile(path, 0)) //UID in list, duplicate found
+			sprintf(buffer, "RRG DUP\n");
+	else sprintf(buffer, "RRG NOK\n");
 	free(directory);
 	free(fileDirectory);
 	
