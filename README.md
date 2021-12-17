@@ -3,8 +3,8 @@ Projeto de Redes
 
 ## TO-DO
 
-- [ ] Corrigir verificação de Users existentes (verificar pasta a pasta) - usar findFile()
-- [ ] Arranjar receção das mensagens por parte do servidor
+- [x] Corrigir verificação de Users existentes (verificar pasta a pasta) - usar findFile()
+- [x] Arranjar receção das mensagens por parte do servidor
 - [ ] Fazer makefile
 
 
