@@ -12,9 +12,8 @@
 #include <list>
 #include <iterator>
 #include <algorithm>
-
+#include <errno.h>
 #include "ServerUDP.hpp"
-
 
 
 using namespace std;
@@ -23,45 +22,56 @@ void comRegister(char* buffer, int UID, char* pass){
 	
 	FILE *fp;
 	char* directory = (char*) malloc(sizeof(char)* 12);
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODED
-	char* path = (char*) malloc(sizeof(char)*SIZE_STRING);
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
-	sprintf(path, "USERS/%d", UID);
-
-	if ((UID/100000) != 0) 
+	if ((UID/100000) != 0 || strlen(pass)!=8){ 
 		sprintf(buffer, "RRG NOK\n");
-	else if(!CFileFind::FindFile(path, 0)){
+		return;
+		
+	}
+	
+	mkdir("USERS",0755);
+	sprintf(directory, "USERS/%d", UID);
+	
+	if(mkdir(directory,0755)== 0){
+		sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
+		
+		if((fp = fopen(fileDirectory, "w+")) == NULL)
+			sprintf(buffer, "ERR\n");
 
-			if(mkdir("USERS",0755) != 0) 
-				sprintf(buffer, "ERR\n");
+		fprintf(fp,"%s\n",pass);
+	
+		fclose(fp);
+	
+		sprintf(buffer, "RRG OK\n");
 
-			sprintf(directory, "USERS/%d", UID); 
-
-			if(mkdir(directory,0755) != 0) 
-				sprintf(buffer, "ERR\n");
-
-			sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
-
-			if((fp = fopen(fileDirectory, "w+")) == NULL)
-				sprintf(buffer, "ERR\n");
-
-			
-			fprintf(fp,"%s\n",pass);
-			
-			fclose(fp);
-			
-			sprintf(buffer, "RRG OK\n");
-			
-			
-	}	
-	else if(CFileFind::FindFile(path, 0)) //UID in list, duplicate found
-			sprintf(buffer, "RRG DUP\n");
-	else sprintf(buffer, "RRG NOK\n");
+	}
+	else if(errno==EEXIST){
+		sprintf(buffer, "RRG DUP\n");
+	}
+	else {
+		sprintf(buffer, "RRG NOK\n");
+	}
+	
 	free(directory);
 	free(fileDirectory);
 	
 }
-void comUnregister(){
+void comUnregister(char* buffer, int UID, char* pass){
+
+	FILE *fp;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	char* 
+
+	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
+
+	if((fp = fopen(fileDirectory, "r+")) != NULL){
+		fread()
+	}
+			sprintf(buffer, "ERR\n");
+	fread
+	
+	free(fileDirectory);
     return;
 }
 void comLogin(){
@@ -78,10 +88,10 @@ char* processCommands(char* command){
     buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n,UID;
   
-    n=sscanf(command,"%s %d %s",com,&UID,pass); 
+    n=sscanf(command,"%s %d %s\n",com,&UID,pass); 
         
     if(n<1)
-		sprintf(command, "ERR\n");
+		sprintf(buffer, "ERR\n");
         
 
     if(strcmp(com,"REG")==0 && n==3){
@@ -112,6 +122,7 @@ int main(){
 	struct addrinfo hints,*res;
 	struct sockaddr_in addr;
 	char buffer[128];
+	char * buffer2;
 	
 	char host[NI_MAXHOST],service[NI_MAXSERV];
 
@@ -142,10 +153,10 @@ int main(){
 		else
 			printf("sent by [%s:%s]\n",host,service);
 
-		processCommands(buffer);
+		buffer2 = processCommands(buffer);
 	
 		//strcpy(buffer, "amo te barbara tinoco\n");
-		n=sendto(fd,buffer,strlen(buffer),0, (struct sockaddr*) &addr, addrlen);
+		n=sendto(fd,buffer2,strlen(buffer),0, (struct sockaddr*) &addr, addrlen);
 		if(n==-1)
 			exit(1);
 

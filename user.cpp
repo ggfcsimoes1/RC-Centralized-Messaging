@@ -122,6 +122,8 @@ char* clientSend(char* message){
 
 void commandRegister(char* message){
     char* response = clientSend(message);
+
+    printf("%s\n", response);
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Registration error\n");
 
