@@ -61,24 +61,62 @@ void comUnregister(char* buffer, int UID, char* pass){
 
 	FILE *fp;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
-	char* 
 
 	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
 
-	if((fp = fopen(fileDirectory, "r+")) != NULL){
-		fread()
+	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
+	//file + directory exist, everything is valid...
+			//commandUnsub();
+			sprintf(buffer, "UNR OK\n");
 	}
-			sprintf(buffer, "ERR\n");
-	fread
-	
+	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
+			sprintf(buffer, "UNR NOK\n");
+	}
+	else {
+		sprintf(buffer, "ERR\n");
+	}
 	free(fileDirectory);
-    return;
+
 }
-void comLogin(){
-    return;
+void comLogin(char* buffer, int UID, char* pass){
+	FILE *fp;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+
+	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
+
+	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
+	//file + directory exist, everything is valid...
+			sprintf(buffer, "RLO OK\n");
+	}
+	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
+			sprintf(buffer, "RLO NOK\n");
+	}
+	else {
+		sprintf(buffer, "ERR\n");
+	}
+	free(fileDirectory);
+
+
 }
-void comLogout(){
-    return;
+void comLogout(char* buffer, int UID, char* pass){
+	FILE *fp;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+
+	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
+
+	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
+	//file + directory exist, everything is valid...
+			sprintf(buffer, "ROU OK\n");
+	}
+	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
+			sprintf(buffer, "ROU NOK\n");
+	}
+	else {
+		sprintf(buffer, "ERR\n");
+	}
+	free(fileDirectory);
+
+
 }
 
 char* processCommands(char* command){
@@ -99,13 +137,13 @@ char* processCommands(char* command){
     }
             
     else if(strcmp(com,"UNR")==0)
-        comUnregister();
+        comUnregister(buffer,UID,pass);
         
     else if(strcmp(com,"LOG")==0)
-        comLogin();
+        comLogin(buffer,UID,pass);
 
     else if(strcmp(com,"LOU")==0)
-        comLogout();
+        comLogout(buffer,UID,pass);
 
     free(com);
     free(pass);

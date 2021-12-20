@@ -10,6 +10,8 @@
 
 extern char* DSIP;
 extern char* DSport;
+extern char* currentID;
+extern char* currentPass;
 extern bool isLoggedIn;
 
 void getDefaultPort();
@@ -17,9 +19,10 @@ void getDefaultIP();
 void parseArgs(int numArgs,char *args[]);
 char* clientSend(char* message);
 void commandRegister(char* message);
-void commandLogin(char* message);
-void commandLogout(char* message);
-void commandShowUID(char* currentUserID);
+void commandUnregister(char* message);
+void commandLogin(char* message, char* UID, char* pass);
+void commandLogout(char* message, char* UID, char* pass);
+void commandShowUID();
 void processCommands();
 
 #endif 

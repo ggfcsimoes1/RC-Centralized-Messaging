@@ -13,6 +13,8 @@
 using namespace std;
 
 bool isLoggedIn = false;
+char* currentID;
+char* currentPass;
 char* DSIP;
 char* DSport;
 
@@ -140,7 +142,22 @@ void commandRegister(char* message){
         printf("Unexpected error\n");
 }
 
-void commandLogin(char* message){
+void commandUnregister(char* message){
+    char* response = clientSend(message);
+    if(strcmp("ERR\n",response)==0)
+        fprintf(stderr,"Un-Registration error\n");
+
+    else if(strcmp("UNR OK\n",response)==0)  
+        printf("Accepted Un-Registration!\n"); 
+
+    else if(strcmp("UNR NOK\n",response)==0)      
+        printf("Not Accepted Un-Registration!\n"); 
+    else   
+        printf("Unexpected error\n");
+}
+
+
+void commandLogin(char* message, char* UID, char* pass){
     char* response = clientSend(message);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Login error\n");
@@ -148,6 +165,8 @@ void commandLogin(char* message){
 
     else if(strcmp("RLO OK\n",response)==0){  
         printf("Accepted Login!\n"); 
+        currentID = UID;
+        currentPass = pass;
         isLoggedIn = true;
     }
 
@@ -159,7 +178,7 @@ void commandLogin(char* message){
     }
 }
 
-void commandLogout(char* message){
+void commandLogout(char* message, char* UID, char* pass){
     char* response = clientSend(message);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
@@ -167,6 +186,8 @@ void commandLogout(char* message){
 
     else if(strcmp("ROU OK\n",response)==0){  
         printf("Accepted Logout!\n"); 
+        currentID = NULL;
+        currentPass = NULL;
         isLoggedIn = false;
     }
 
@@ -178,9 +199,9 @@ void commandLogout(char* message){
     }
 }
 
-void commandShowUID(char* currentUserID){
+void commandShowUID(){
     if(isLoggedIn)
-        printf("User ID: %s \n", currentUserID);
+        printf("User ID: %s \n", currentID);
     else 
         printf("Not logged in!\n");   
 }
@@ -192,7 +213,6 @@ void processCommands(){
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
     pass=(char*) malloc(sizeof(char)*8);
     UID=(char*) malloc(sizeof(char)*5);// HARDCODED
-    char* currentUser = (char*) malloc(sizeof(char)*SIZE_STRING);
     int n;
     
     
@@ -211,21 +231,21 @@ void processCommands(){
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
             sprintf(buffer, "UNR %s %s\n", UID, pass);
-            clientSend(buffer);
+            commandUnregister(buffer);
         }
             
         else if(strcmp(com,"login")==0){
             sprintf(buffer, "LOG %s %s\n", UID, pass);
-            commandLogin(buffer);
+            commandLogin(buffer, UID, pass);
         }
 
         else if(strcmp(com,"logout")==0){
             sprintf(buffer, "OUT %s %s\n", UID, pass);
-            commandLogout(buffer);
+            commandLogout(buffer, UID, pass);
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
-            commandShowUID(currentUser);
+            commandShowUID();
         }
         else if(strcmp(com,"exit")==0)
             //fechar TCP

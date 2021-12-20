@@ -11,10 +11,9 @@ using namespace std;
 extern list <int> registeredUsers;
 
 void comRegister(char* command, int UID, char* pass);
-void comUnregister();
-void comLogin();
-void comLogout();
-void comShowUID();
+void comUnregister(char* buffer, int UID, char* pass);
+void comLogin(char* buffer, int UID, char* pass);
+void comLogout(char* buffer, int UID, char* pass);
 void comExit();
 char* processCommands(char* command);
 
