@@ -18,27 +18,64 @@
 
 using namespace std;
 
+bool logout(int UID){
+
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	bool errcode = false;
+
+	sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
+
+	int rm = remove(fileDirectory);
+
+	if(rm == 0 || errno == ENOENT){
+		errcode = true;
+	}
+
+	free(fileDirectory);
+	return errcode;
+}
+
+bool isLoggedIn(int UID){
+
+	FILE* fp;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	int errcode = true;
+
+	sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
+
+	if((fp=fopen(fileDirectory, "r")) == NULL){
+		errcode = false;
+	}
+
+	fclose(fp);
+	free(fileDirectory);
+	return errcode;
+}
+
 void comRegister(char* buffer, int UID, char* pass){
 	
 	FILE *fp;
 	char* directory = (char*) malloc(sizeof(char)* 12);
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
+	//ALDRABADO
 	if ((UID/100000) != 0 || strlen(pass)!=8){ 
 		sprintf(buffer, "RRG NOK\n");
 		return;
-		
 	}
 	
-	mkdir("USERS",0755);
+	mkdir("USERS",0700);
 	sprintf(directory, "USERS/%d", UID);
 	
-	if(mkdir(directory,0755)== 0){
+	if(mkdir(directory,0700)== 0){
 		sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
 		
-		if((fp = fopen(fileDirectory, "w+")) == NULL)
+		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
-
+			free(directory);
+			free(fileDirectory);
+			return;
+		}
 		fprintf(fp,"%s\n",pass);
 	
 		fclose(fp);
@@ -55,60 +92,80 @@ void comRegister(char* buffer, int UID, char* pass){
 	
 	free(directory);
 	free(fileDirectory);
-	
 }
+
 void comUnregister(char* buffer, int UID, char* pass){
 
-	FILE *fp;
+	// DO unsubscribe
+	
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
-	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
+	sprintf(fileDirectory,"USERS/%d/%d_%s.txt", UID, UID, pass);
 
-	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
-	//file + directory exist, everything is valid...
-			//commandUnsub();
-			sprintf(buffer, "UNR OK\n");
+	int rm = remove(fileDirectory);
+
+	if(rm == 0){
+		sprintf(fileDirectory,"USERS/%d", UID);
+
+		if(logout(UID) == false || rmdir(fileDirectory) != 0){
+			sprintf(buffer, "ERR\n");
+			free(fileDirectory);
+			return;
+		}
+
+		sprintf(buffer, "RUN OK\n");
 	}
-	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
-			sprintf(buffer, "UNR NOK\n");
+	else if(errno == ENOENT){
+		sprintf(buffer, "RUN NOK\n");
 	}
-	else {
+	else{
 		sprintf(buffer, "ERR\n");
 	}
-	free(fileDirectory);
 
+	free(fileDirectory);
 }
+
 void comLogin(char* buffer, int UID, char* pass){
 	FILE *fp;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
 	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
 
-	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
+	fp = fopen(fileDirectory, "r");
+
+	if(fp != NULL){
 	//file + directory exist, everything is valid...
-			sprintf(buffer, "RLO OK\n");
-	}
-	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
+		if(isLoggedIn(UID)){
 			sprintf(buffer, "RLO NOK\n");
+			free(fileDirectory);
+			return;
+		}
+/// CONTINUAR AQUI
+		
+		sprintf(buffer, "RLO OK\n");
+	}
+	else if(fp == NULL){
+		sprintf(buffer, "RLO NOK\n");
 	}
 	else {
 		sprintf(buffer, "ERR\n");
 	}
 	free(fileDirectory);
-
-
 }
+
 void comLogout(char* buffer, int UID, char* pass){
 	FILE *fp;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
 	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
 
-	if((fp = fopen(fileDirectory, "r+")) == NULL && errno == EEXIST){
+	fp = fopen(fileDirectory, "r");
+
+	if(fp != NULL){
 	//file + directory exist, everything is valid...
 			sprintf(buffer, "ROU OK\n");
 	}
-	else if((fp = fopen(fileDirectory, "r+")) == NULL && errno != EEXIST){
+	else if(fp == NULL){
 			sprintf(buffer, "ROU NOK\n");
 	}
 	else {

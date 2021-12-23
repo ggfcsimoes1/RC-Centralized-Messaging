@@ -143,14 +143,17 @@ void commandRegister(char* message){
 }
 
 void commandUnregister(char* message){
+
+    //fazer logout
+
     char* response = clientSend(message);
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Un-Registration error\n");
 
-    else if(strcmp("UNR OK\n",response)==0)  
+    else if(strcmp("RUN OK\n",response)==0)  
         printf("Accepted Un-Registration!\n"); 
 
-    else if(strcmp("UNR NOK\n",response)==0)      
+    else if(strcmp("RUN NOK\n",response)==0)      
         printf("Not Accepted Un-Registration!\n"); 
     else   
         printf("Unexpected error\n");
