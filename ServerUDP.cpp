@@ -14,41 +14,67 @@
 #include <algorithm>
 #include <errno.h>
 #include "ServerUDP.hpp"
+#include <dirent.h>
 
 
 using namespace std;
+bool verifyPassword(char*fileDirectory, char* password,int UID,char* buffer){
+	FILE *fp;
+	bool verified=false;
+	char* pass=(char*)malloc(sizeof(char)*9);
 
+	sprintf(fileDirectory,"USERS/%d/%d_pass.txt",UID ,UID);
+
+	if((fp=fopen(fileDirectory,"r"))==NULL){
+		sprintf(buffer, "ERR\n");
+		return verified;
+	}
+
+	fscanf(fp,"%s\n",pass);
+
+	if(strcmp(pass,password)==0)
+		verified=true;
+
+	fclose(fp);
+	free(pass);
+
+	return verified;
+
+}
 bool logout(int UID){
 
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
-	bool errcode = false;
+	bool sucess = false;
 
 	sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
 
 	int rm = remove(fileDirectory);
 
-	if(rm == 0 || errno == ENOENT){
-		errcode = true;
+	if(rm == 0 || errno==ENOENT){
+		sucess = true;
 	}
 
 	free(fileDirectory);
-	return errcode;
+	return sucess;
 }
 
-bool isLoggedIn(int UID){
-
+bool isLoggedIn(char* fileDirectory){
+	//se nao usarmos em mais lado criar ficheiro aqui
 	FILE* fp;
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	
 	int errcode = true;
 
-	sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
+	
 
 	if((fp=fopen(fileDirectory, "r")) == NULL){
+
 		errcode = false;
 	}
+	else
+		fclose(fp);
 
-	fclose(fp);
-	free(fileDirectory);
+	
+	
 	return errcode;
 }
 
@@ -68,12 +94,13 @@ void comRegister(char* buffer, int UID, char* pass){
 	sprintf(directory, "USERS/%d", UID);
 	
 	if(mkdir(directory,0700)== 0){
-		sprintf(fileDirectory,"%s/%d_%s.txt",directory ,UID, pass);
+		sprintf(fileDirectory,"%s/%d_pass.txt",directory ,UID);
 		
 		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
 			free(directory);
 			free(fileDirectory);
+			fclose(fp);
 			return;
 		}
 		fprintf(fp,"%s\n",pass);
@@ -100,56 +127,64 @@ void comUnregister(char* buffer, int UID, char* pass){
 	
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
-	sprintf(fileDirectory,"USERS/%d/%d_%s.txt", UID, UID, pass);
+	sprintf(buffer, "RUN NOK\n");
 
-	int rm = remove(fileDirectory);
+	if(verifyPassword(fileDirectory,pass,UID,buffer)){
+		if(remove(fileDirectory)==0){
+			sprintf(fileDirectory,"USERS/%d", UID);
 
-	if(rm == 0){
-		sprintf(fileDirectory,"USERS/%d", UID);
+			if(logout(UID) == false || rmdir(fileDirectory) != 0){
+				sprintf(buffer, "ERR\n");
+				free(fileDirectory);
+				return;
+			}
 
-		if(logout(UID) == false || rmdir(fileDirectory) != 0){
-			sprintf(buffer, "ERR\n");
-			free(fileDirectory);
-			return;
+			sprintf(buffer, "RUN OK\n");
 		}
+		else
+			sprintf(buffer, "ERR\n");
 
-		sprintf(buffer, "RUN OK\n");
+		
 	}
-	else if(errno == ENOENT){
-		sprintf(buffer, "RUN NOK\n");
-	}
-	else{
-		sprintf(buffer, "ERR\n");
-	}
+	
 
 	free(fileDirectory);
 }
 
 void comLogin(char* buffer, int UID, char* pass){
-	FILE *fp;
+	FILE *flog;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	
+	sprintf(buffer, "RLO NOK\n");
 
-	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
-
-	fp = fopen(fileDirectory, "r");
-
-	if(fp != NULL){
-	//file + directory exist, everything is valid...
-		if(isLoggedIn(UID)){
-			sprintf(buffer, "RLO NOK\n");
-			free(fileDirectory);
-			return;
-		}
-/// CONTINUAR AQUI
+	if(verifyPassword(fileDirectory,pass,UID,buffer)){
+		sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
 		
-		sprintf(buffer, "RLO OK\n");
+		//file + directory exist, everything is valid...
+		
+
+		if(!isLoggedIn(fileDirectory)){
+			sprintf(buffer, "RLO OK\n");
+			if((flog=fopen(fileDirectory,"w"))==NULL)			
+				sprintf(buffer,"RLO ERR\n");
+			fclose(flog);
+
+			
+		}
+			
+			
+		
+		
+
+		
+		
 	}
-	else if(fp == NULL){
-		sprintf(buffer, "RLO NOK\n");
-	}
-	else {
-		sprintf(buffer, "ERR\n");
-	}
+
+	
+
+
+	
+	
 	free(fileDirectory);
 }
 
@@ -157,24 +192,58 @@ void comLogout(char* buffer, int UID, char* pass){
 	FILE *fp;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
-	sprintf(fileDirectory,"USERS/%d/%d_%s.txt",UID,UID, pass);
+	sprintf(buffer, "ROU NOK\n");
 
-	fp = fopen(fileDirectory, "r");
-
-	if(fp != NULL){
-	//file + directory exist, everything is valid...
+	if(verifyPassword(fileDirectory,pass,UID,buffer)){
+		if(logout(UID))
 			sprintf(buffer, "ROU OK\n");
+		else
+			sprintf(buffer, "ROU ERR\n");
 	}
-	else if(fp == NULL){
-			sprintf(buffer, "ROU NOK\n");
-	}
-	else {
-		sprintf(buffer, "ERR\n");
-	}
+
+	
+	
 	free(fileDirectory);
 
 
 }
+
+/*void comGroups(char* buffer){
+	DIR *d;
+	struct dirent *dir;
+	int i=0;
+	FILE *fp;
+	char GIDname[30];
+	
+	list->no_groups=0;
+	d = opendir("GROUPS");
+	if (d)	{
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			if(strlen(dir->d_name)>2)
+				continue;
+			strcpy(list->group_no[i], dir->d_name);
+			sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+			fp=fopen(GIDname,"r");
+			if(fp)	{
+				fscanf(fp,"%24s",list->group_name[i]);
+				fclose(fp);
+			}
+			++i;
+			if(i==99)
+				break;
+		
+		}
+		list->no_groups=i;
+		closedir(d);
+	}
+	else
+		return(-1);
+	if(list->no_groups > 1)
+		SortGList(list);
+	return(list->no_groups);
+}*/
 
 char* processCommands(char* command){
     char *com,*pass,*buffer;
@@ -189,18 +258,42 @@ char* processCommands(char* command){
 		sprintf(buffer, "ERR\n");
         
 
-    if(strcmp(com,"REG")==0 && n==3){
-        comRegister(buffer,UID,pass);
+    if(strcmp(com,"REG")==0 ){
+		if(n==3)
+        	comRegister(buffer,UID,pass);
+		else
+			sprintf(buffer, "ERR\n");
     }
             
-    else if(strcmp(com,"UNR")==0)
-        comUnregister(buffer,UID,pass);
+    else if(strcmp(com,"UNR")==0){
+		if(n==3)
+        	comUnregister(buffer,UID,pass);
+		else
+			sprintf(buffer, "ERR\n");
+	}
         
-    else if(strcmp(com,"LOG")==0)
-        comLogin(buffer,UID,pass);
+    else if(strcmp(com,"LOG")==0){
+		if(n==3)
+        	comLogin(buffer,UID,pass);
+		else
+			sprintf(buffer, "ERR\n");
+	}
 
-    else if(strcmp(com,"LOU")==0)
-        comLogout(buffer,UID,pass);
+    else if(strcmp(com,"OUT")==0){
+		if(n==3)
+        	comLogout(buffer,UID,pass);
+		else
+			sprintf(buffer, "ERR\n");
+	}
+
+	/*else if(strcmp(com,"GLS")==0){
+		if(n==1)
+        	//comGroups(buffer);
+		else
+			sprintf(buffer, "ERR\n");
+	}*/
+
+	
 
     free(com);
     free(pass);

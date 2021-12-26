@@ -197,7 +197,8 @@ void commandLogout(char* message, char* UID, char* pass){
     else if(strcmp("ROU NOK\n",response)==0){    
         printf("Not Accepted Logout!\n");
     }
-    else{   
+    else{ 
+        printf("%s\n",response) ;
         printf("Unexpected error\n");
     }
 }
@@ -239,12 +240,19 @@ void processCommands(){
             
         else if(strcmp(com,"login")==0){
             sprintf(buffer, "LOG %s %s\n", UID, pass);
-            commandLogin(buffer, UID, pass);
+            //O QUE É SUPOSTO RESPONDER OH BURRO
+            if(!isLoggedIn)
+                commandLogin(buffer, UID, pass);
+            else
+                printf("FUCK YOU BITCH JA DERAM LOGIN\n");
         }
 
         else if(strcmp(com,"logout")==0){
             sprintf(buffer, "OUT %s %s\n", UID, pass);
-            commandLogout(buffer, UID, pass);
+            if(isLoggedIn)
+                commandLogout(buffer, UID, pass);
+            else
+                printf("ATAO PRIMO NINGUEM TA LOGADO QUERES DAR LOGOUT?\n");
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
