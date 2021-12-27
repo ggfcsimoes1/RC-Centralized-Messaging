@@ -18,6 +18,30 @@
 
 
 using namespace std;
+
+int currentGroups=0; //number of groups in the directory
+
+
+void getNumberOfGroups(){
+	DIR *d;
+	struct dirent *dir;
+	d = opendir("GROUPS");
+
+	if (d)	{
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			if(strlen(dir->d_name)>2)
+				continue;
+			++currentGroups;
+			if(currentGroups==99)
+				break;	
+		}
+		printf("no of groups %d\n", currentGroups);
+		closedir(d);
+	}
+}
+
 bool verifyPassword(char*fileDirectory, char* password,int UID,char* buffer){
 	FILE *fp;
 	bool verified=false;
@@ -63,18 +87,12 @@ bool isLoggedIn(char* fileDirectory){
 	FILE* fp;
 	
 	int errcode = true;
-
-	
-
 	if((fp=fopen(fileDirectory, "r")) == NULL){
 
 		errcode = false;
 	}
 	else
 		fclose(fp);
-
-	
-	
 	return errcode;
 }
 
@@ -142,12 +160,8 @@ void comUnregister(char* buffer, int UID, char* pass){
 			sprintf(buffer, "RUN OK\n");
 		}
 		else
-			sprintf(buffer, "ERR\n");
-
-		
+			sprintf(buffer, "ERR\n");	
 	}
-	
-
 	free(fileDirectory);
 }
 
@@ -161,30 +175,15 @@ void comLogin(char* buffer, int UID, char* pass){
 		sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
 		
 		//file + directory exist, everything is valid...
-		
 
 		if(!isLoggedIn(fileDirectory)){
 			sprintf(buffer, "RLO OK\n");
 			if((flog=fopen(fileDirectory,"w"))==NULL)			
 				sprintf(buffer,"RLO ERR\n");
 			fclose(flog);
-
-			
-		}
-			
-			
-		
-		
-
-		
-		
+		}	
 	}
 
-	
-
-
-	
-	
 	free(fileDirectory);
 }
 
@@ -208,42 +207,45 @@ void comLogout(char* buffer, int UID, char* pass){
 
 }
 
-/*void comGroups(char* buffer){
+void comGroups(char* buffer){ //implementar messageID
 	DIR *d;
 	struct dirent *dir;
 	int i=0;
 	FILE *fp;
 	char GIDname[30];
 	
-	list->no_groups=0;
 	d = opendir("GROUPS");
+
+	sprintf(buffer, "RGL %d", currentGroups);
+
 	if (d)	{
 		while ((dir = readdir(d)) != NULL)	{
 			if(dir->d_name[0]=='.')
 				continue;
 			if(strlen(dir->d_name)>2)
 				continue;
-			strcpy(list->group_no[i], dir->d_name);
+
+			
+			
 			sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
 			fp=fopen(GIDname,"r");
 			if(fp)	{
-				fscanf(fp,"%24s",list->group_name[i]);
+				fscanf(fp,"%24s",GIDname);
 				fclose(fp);
 			}
+			sprintf(buffer, "%s %s %s", buffer,dir->d_name, GIDname);
 			++i;
 			if(i==99)
 				break;
 		
 		}
-		list->no_groups=i;
 		closedir(d);
+		sprintf(buffer, "%s\n", buffer);
 	}
 	else
-		return(-1);
-	if(list->no_groups > 1)
-		SortGList(list);
-	return(list->no_groups);
-}*/
+		sprintf(buffer, "ERR\n");
+	
+}
 
 char* processCommands(char* command){
     char *com,*pass,*buffer;
@@ -251,6 +253,8 @@ char* processCommands(char* command){
     pass=(char*) malloc(sizeof(char)*SIZE_STRING);
     buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n,UID;
+
+	char* groupNames;
   
     n=sscanf(command,"%s %d %s\n",com,&UID,pass); 
         
@@ -286,12 +290,17 @@ char* processCommands(char* command){
 			sprintf(buffer, "ERR\n");
 	}
 
-	/*else if(strcmp(com,"GLS")==0){
-		if(n==1)
-        	//comGroups(buffer);
+	else if(strcmp(com,"GLS")==0){
+		if(n==1){
+			groupNames = (char*) malloc(sizeof(char)*(currentGroups+1)*24);
+        	comGroups(groupNames);
+			free(com);
+			free(pass);
+			return groupNames;
+		}
 		else
 			sprintf(buffer, "ERR\n");
-	}*/
+	}
 
 	
 
@@ -313,6 +322,9 @@ int main(){
 	char * buffer2;
 	
 	char host[NI_MAXHOST],service[NI_MAXSERV];
+
+
+	getNumberOfGroups();
 
 	fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
 	if (fd==1) //error
@@ -338,13 +350,13 @@ int main(){
 			exit(1);
 		if((errcode=getnameinfo((struct sockaddr*)&addr,addrlen,host,sizeof host,service,sizeof service,0))!=0)
 			fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
-		else
+		else{ //se tiver em modo verboso da print disto
 			printf("sent by [%s:%s]\n",host,service);
-
+			//dar print no process commands do GID e UID, e a descrição do comando
+		}
 		buffer2 = processCommands(buffer);
-	
-		//strcpy(buffer, "amo te barbara tinoco\n");
-		n=sendto(fd,buffer2,strlen(buffer),0, (struct sockaddr*) &addr, addrlen);
+		
+		n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
 		if(n==-1)
 			exit(1);
 

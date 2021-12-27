@@ -5,14 +5,13 @@ Projeto de Redes
 
 - [x] Corrigir verificação de Users existentes (verificar pasta a pasta) - usar findFile().
 - [x] Arranjar receção das mensagens por parte do servidor.
-- [ ] Fazer timer para receção de mensagens.
-- [ ] Fazer logout, showid, e exit.
-- [ ] Fazer makefile.
+- [x] Fazer timer para receção de mensagens.
+- [x] Fazer logout, showid, e exit.
+- [ ] Command unregister, fazer unsubscribe.
+- [x] Fazer makefile.
+- [ ] Mudar UID para char*, por causa das verificações
 
 
 # Dúvidas
 
-- Colocar duvidas
-- -voce vai às aulas practicas?
-- -recebe ficheiro?
-
+- Perguntar acerca do timeout, funcionamento do TimerOFF e TimerON, como proceder no timeout (anular operaçao, tentar de novo, etc.)

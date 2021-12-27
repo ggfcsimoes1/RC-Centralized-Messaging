@@ -19,6 +19,21 @@ char* DSIP;
 char* DSport;
 
 
+int TimerON(int sd){
+    struct timeval tmout;
+    memset((char *)&tmout,0,sizeof(tmout)); /* clear time structure */
+    tmout.tv_sec=15; /* Wait for 15 sec for a reply from server. */
+    return(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tmout,sizeof(struct timeval)));
+}
+
+int TimerOFF(int sd){
+    struct timeval tmout;
+    memset((char *)&tmout,0,sizeof(tmout)); /* clear time structure */
+    return(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tmout,sizeof(struct timeval)));
+}
+
+
+
 void verifyArguments(int numArgs, char *args[]){
     if (numArgs != 1 && numArgs != 3 && numArgs != 5){ //-n e -p sempre como argumento?
         fprintf(stderr,"Invalid number of Arguments!");
@@ -112,11 +127,15 @@ char* clientSend(char* message){
     free(message);
     message = (char*) malloc(sizeof(char)*SIZE_STRING);
     
-    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen); //nao está a receber bem do server
-    
-    if(n==-1)
+    TimerON(fd);
+    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen); //recebe mensagens do servidor
+    if(errno == EAGAIN){  
+        printf("Timeout occured!\n");
+    }
+    else if(n==-1)
         exit(1);
 
+    TimerOFF(fd);
     freeaddrinfo(res);
     close(fd);
     return message;
@@ -210,6 +229,15 @@ void commandShowUID(){
         printf("Not logged in!\n");   
 }
 
+void commandGroups(char* message){
+    char* response = clientSend(message);
+    if(strcmp("ERR\n",response)==0){
+        fprintf(stderr,"Logout error\n");
+    }
+    printf("%s\n",response);
+
+}
+
 void processCommands(){
     
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
@@ -258,6 +286,12 @@ void processCommands(){
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
             commandShowUID();
         }
+
+        else if(strcmp(com,"groups")==0 || strcmp(com,"gl")==0){
+            sprintf(buffer, "GLS\n");
+            commandGroups(buffer);
+        }    
+
         else if(strcmp(com,"exit")==0)
             //fechar TCP
             exit(0);
@@ -272,6 +306,7 @@ int main(int argc, char *argv[]){
 
     verifyArguments(argc, argv);
     parseArgs(argc,argv);
+    
     processCommands();
     
     free(DSIP); //meter numa func
