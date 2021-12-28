@@ -9,7 +9,7 @@ Projeto de Redes
 - [x] Fazer logout, showid, e exit.
 - [ ] Command unregister, fazer unsubscribe.
 - [x] Fazer makefile.
-- [ ] Mudar UID para char*, por causa das verificações
+- [ ] Mudar UID para char*, por causa das verificações.
 
 
 # Dúvidas
