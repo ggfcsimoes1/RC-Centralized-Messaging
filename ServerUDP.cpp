@@ -105,10 +105,18 @@ void comRegister(char* buffer, int UID, char* pass){
 	//ALDRABADO
 	if ((UID/100000) != 0 || strlen(pass)!=8){ 
 		sprintf(buffer, "RRG NOK\n");
+		free(directory);
+		free(fileDirectory);
 		return;
 	}
-	
-	mkdir("USERS",0700);
+
+	if(mkdir("USERS",0700) != 0){
+		sprintf(buffer, "ERR\n");~
+		free(directory);
+		free(fileDirectory);
+		return;
+	}
+
 	sprintf(directory, "USERS/%d", UID);
 	
 	if(mkdir(directory,0700)== 0){
@@ -200,11 +208,7 @@ void comLogout(char* buffer, int UID, char* pass){
 			sprintf(buffer, "ROU ERR\n");
 	}
 
-	
-	
 	free(fileDirectory);
-
-
 }
 
 void comGroups(char* buffer){ //implementar messageID
@@ -225,8 +229,6 @@ void comGroups(char* buffer){ //implementar messageID
 			if(strlen(dir->d_name)>2)
 				continue;
 
-			
-			
 			sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
 			fp=fopen(GIDname,"r");
 			if(fp)	{
@@ -247,16 +249,53 @@ void comGroups(char* buffer){ //implementar messageID
 	
 }
 
+void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
+	
+	FILE *fp;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	
+	if(strcmp("00", GID) == 0 && currentGroups < 99){
+
+		if(mkdir("GROUPS",0700) != 0){
+			sprintf(buffer, "ERR\n");
+			free(fileDirectory);
+			fclose(fp);
+			return;
+		}
+		currentGroups++;
+		sprintf(fileDirectory, "GROUPS/%02d/%02d_name.txt", currentGroups, currentGroups);
+
+		if((fp = fopen(fileDirectory, "w+")) == NULL){
+			sprintf(buffer, "ERR\n");
+			free(directory);
+			free(fileDirectory);
+			fclose(fp);
+			return;
+		}
+
+		//--------------------------------------------------CONTINUAR AQUI----------------------
+		fprintf(fp,"%s\n",pass);
+	
+		fclose(fp);
+	
+		sprintf(buffer, "RRG OK\n");
+	} 
+	else{
+
+	}
+}
+
 char* processCommands(char* command){
     char *com,*pass,*buffer;
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
-    pass=(char*) malloc(sizeof(char)*SIZE_STRING);
+    arg2=(char*) malloc(sizeof(char)*SIZE_STRING);
+	arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
     buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
-    int n,UID;
+    int n,arg1;
 
 	char* groupNames;
   
-    n=sscanf(command,"%s %d %s\n",com,&UID,pass); 
+    n=sscanf(command,"%s %d %s %s\n",com,&arg1,arg2,arg3); 
         
     if(n<1)
 		sprintf(buffer, "ERR\n");
@@ -264,48 +303,54 @@ char* processCommands(char* command){
 
     if(strcmp(com,"REG")==0 ){
 		if(n==3)
-        	comRegister(buffer,UID,pass);
+        	comRegister(buffer,arg1,arg2);
 		else
 			sprintf(buffer, "ERR\n");
     }
             
     else if(strcmp(com,"UNR")==0){
 		if(n==3)
-        	comUnregister(buffer,UID,pass);
+        	comUnregister(buffer,arg1,arg2);
 		else
 			sprintf(buffer, "ERR\n");
 	}
         
     else if(strcmp(com,"LOG")==0){
 		if(n==3)
-        	comLogin(buffer,UID,pass);
+        	comLogin(buffer,arg1,arg2);
 		else
 			sprintf(buffer, "ERR\n");
 	}
 
     else if(strcmp(com,"OUT")==0){
 		if(n==3)
-        	comLogout(buffer,UID,pass);
+        	comLogout(buffer,arg1,arg2);
 		else
 			sprintf(buffer, "ERR\n");
 	}
 
 	else if(strcmp(com,"GLS")==0){
 		if(n==1){
-			groupNames = (char*) malloc(sizeof(char)*(currentGroups+1)*24);
+			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));
         	comGroups(groupNames);
 			free(com);
-			free(pass);
+			free(arg2);
 			return groupNames;
 		}
 		else
 			sprintf(buffer, "ERR\n");
 	}
 
-	
+	else if(strcmp(com,"GSR")==0){
+		if(n==4){
+			comSubscribe(buffer,arg1,arg2,arg3);
+		}
+		else
+			sprintf(buffer, "ERR\n");
+	}
 
     free(com);
-    free(pass);
+    free(arg2);
 	return buffer;
 }
 

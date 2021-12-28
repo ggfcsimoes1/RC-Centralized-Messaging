@@ -125,10 +125,11 @@ char* clientSend(char* message){
     addrlen=sizeof(addr);
 
     free(message);
-    message = (char*) malloc(sizeof(char)*SIZE_STRING);
-    
+    message = (char*) malloc(sizeof(char)* SIZE_STRING);
+
     TimerON(fd);
     n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen); //recebe mensagens do servidor
+
     if(errno == EAGAIN){  
         printf("Timeout occured!\n");
     }
@@ -187,8 +188,8 @@ void commandLogin(char* message, char* UID, char* pass){
 
     else if(strcmp("RLO OK\n",response)==0){  
         printf("Accepted Login!\n"); 
-        currentID = UID;
-        currentPass = pass;
+        strcpy(currentID, UID);
+        strcpy(currentPass, pass);
         isLoggedIn = true;
     }
 
@@ -200,7 +201,7 @@ void commandLogin(char* message, char* UID, char* pass){
     }
 }
 
-void commandLogout(char* message, char* UID, char* pass){
+void commandLogout(char* message){
     char* response = clientSend(message);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
@@ -208,8 +209,6 @@ void commandLogout(char* message, char* UID, char* pass){
 
     else if(strcmp("ROU OK\n",response)==0){  
         printf("Accepted Logout!\n"); 
-        currentID = NULL;
-        currentPass = NULL;
         isLoggedIn = false;
     }
 
@@ -230,6 +229,8 @@ void commandShowUID(){
 }
 
 void commandGroups(char* message){
+    message = (char*) realloc(message, 10000);
+
     char* response = clientSend(message);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
@@ -238,18 +239,52 @@ void commandGroups(char* message){
 
 }
 
+void commandSubscribe(char* message){
+    char* response = clientSend(message);
+
+    if(strcmp("ERR\n",response)==0){
+        fprintf(stderr,"Subscribe error\n");
+    }
+    else if(strcmp("RGS OK\n", response) == 0){
+        printf("Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS NEW GID\n", response) == 0){
+        //MODIFICAR
+        printf("Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS E_USR\n",response) == 0){    
+        printf("Not Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS E_GRP\n",response) == 0){    
+        printf("Not Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS E_GNAME\n",response) == 0){    
+        printf("Not Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS E_FULL\n",response) == 0){    
+        printf("Not Accepted Subscription!\n");
+    }
+    else if(strcmp("RGS NOK\n",response) == 0){    
+        printf("Not Accepted Subscription!\n");
+    }
+    else{   
+        printf("Unexpected error\n");
+    }
+}
+
 void processCommands(){
     
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     char *com,*pass,*UID;
     com=(char*) malloc(sizeof(char)*SIZE_STRING);
-    pass=(char*) malloc(sizeof(char)*8);
-    UID=(char*) malloc(sizeof(char)*5);// HARDCODED
+    arg2=(char*) malloc(sizeof(char)*8);
+    arg1=(char*) malloc(sizeof(char)*5);// HARDCODED
     int n;
-    
-    
+
+    //VERIFICAR ARGUMENTOS
+
     while(fgets(buffer,SIZE_STRING,stdin)){
-        n=sscanf(buffer,"%s %s %s",com,UID,pass); 
+        n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
         strcpy(buffer, "");
 
 
@@ -257,28 +292,28 @@ void processCommands(){
             continue;
 
         if(strcmp(com,"reg")==0){
-            sprintf(buffer, "REG %s %s\n", UID, pass);
+            sprintf(buffer, "REG %s %s\n", arg1, arg2);
             commandRegister(buffer);
         }
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
-            sprintf(buffer, "UNR %s %s\n", UID, pass);
+            sprintf(buffer, "UNR %s %s\n", arg1, arg2);
             commandUnregister(buffer);
         }
             
         else if(strcmp(com,"login")==0){
-            sprintf(buffer, "LOG %s %s\n", UID, pass);
+            sprintf(buffer, "LOG %s %s\n", arg1, arg2);
             //O QUE É SUPOSTO RESPONDER OH BURRO
             if(!isLoggedIn)
-                commandLogin(buffer, UID, pass);
+                commandLogin(buffer, arg1, arg2);
             else
                 printf("FUCK YOU BITCH JA DERAM LOGIN\n");
         }
 
         else if(strcmp(com,"logout")==0){
-            sprintf(buffer, "OUT %s %s\n", UID, pass);
+            sprintf(buffer, "OUT %s %s\n", arg1, arg2);
             if(isLoggedIn)
-                commandLogout(buffer, UID, pass);
+                commandLogout(buffer);
             else
                 printf("ATAO PRIMO NINGUEM TA LOGADO QUERES DAR LOGOUT?\n");
         }
@@ -290,6 +325,11 @@ void processCommands(){
         else if(strcmp(com,"groups")==0 || strcmp(com,"gl")==0){
             sprintf(buffer, "GLS\n");
             commandGroups(buffer);
+        }
+
+        else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){
+            sprintf(buffer, "GSR %s %s %s\n", currentID, arg1, arg2);
+            commandSubscribe(buffer);
         }    
 
         else if(strcmp(com,"exit")==0)
@@ -303,6 +343,8 @@ int main(int argc, char *argv[]){
 
     DSIP = (char*) malloc(sizeof(char)); //ip adresses have 4 bytes
     DSport = (char*) malloc(sizeof(char));
+    currentID = (char*) malloc(sizeof(char) * 5);
+    currentPass = (char*) malloc(sizeof(char) * 8);
 
     verifyArguments(argc, argv);
     parseArgs(argc,argv);
