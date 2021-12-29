@@ -13,8 +13,9 @@
 using namespace std;
 
 bool isLoggedIn = false;
-char* currentID;
+char* currentUID;
 char* currentPass;
+int currentGID=0;
 char* DSIP;
 char* DSport;
 
@@ -188,7 +189,7 @@ void commandLogin(char* message, char* UID, char* pass){
 
     else if(strcmp("RLO OK\n",response)==0){  
         printf("Accepted Login!\n"); 
-        strcpy(currentID, UID);
+        strcpy(currentUID, UID);
         strcpy(currentPass, pass);
         isLoggedIn = true;
     }
@@ -223,7 +224,7 @@ void commandLogout(char* message){
 
 void commandShowUID(){
     if(isLoggedIn)
-        printf("User ID: %s \n", currentID);
+        printf("User ID: %s \n", currentUID);
     else 
         printf("Not logged in!\n");   
 }
@@ -254,16 +255,16 @@ void commandSubscribe(char* message){
         printf("Accepted Subscription!\nGID: %s\n", GID);
     }
     else if(strcmp("RGS E_USR\n",response) == 0){    
-        printf("Not Accepted Subscription!\n");
+        printf("Sub: Invalid user!\n");
     }
     else if(strcmp("RGS E_GRP\n",response) == 0){    
-        printf("Not Accepted Subscription!\n");
+        printf("Sub: Invalid group ID!\n");
     }
     else if(strcmp("RGS E_GNAME\n",response) == 0){    
-        printf("Not Accepted Subscription!\n");
+        printf("Sub: Invalid group name!\n");
     }
     else if(strcmp("RGS E_FULL\n",response) == 0){    
-        printf("Not Accepted Subscription!\n");
+        printf("Sub: Maximum groups reached!\n");
     }
     else if(strcmp("RGS NOK\n",response) == 0){    
         printf("Not Accepted Subscription!\n");
@@ -273,18 +274,60 @@ void commandSubscribe(char* message){
     }
 }
 
+void commandUnsubscribe(char* message){
+    char* GID = (char*) malloc(sizeof(char)* 3);
+    char* response = clientSend(message);
+
+    if(strcmp("ERR\n",response)==0)
+        fprintf(stderr,"Unsubscribe error\n");
+
+    else if(strcmp("RGU OK\n", response) == 0)
+        printf("Accepted unsubscription!\n");
+
+    else if(strcmp("RGU E_USR\n", response) == 0)
+        printf("Unsub: Invalid user!\n");
+
+    else if(strcmp("RGU E_GRP\n", response) == 0)
+        printf("Unsub: Invalid group ID!\n");
+
+    else if(strcmp("RGU NOK\n", response) == 0)
+        printf("Not Accepted unsubscription!\n");
+
+    else
+        printf("Unexpected error\n");
+    
+}
+
+void commandSelect(char* GID){
+    if (atoi(GID) > 0 && atoi(GID) < 100){
+        currentGID = atoi(GID);
+        printf("Selected Group ID: %d \n", currentGID);
+    }
+    else 
+        printf("Invalid Group ID!\n");
+}
+
+void commandShowGID(){
+    if (currentGID != 0){;
+        printf("Current Group ID: %d \n", currentGID);
+    }
+    else 
+        printf("No group selected!\n");
+}
+
 void processCommands(){
     
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
     char* arg2=(char*) malloc(sizeof(char)*8);
+    //char* arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
     char* arg1=(char*) malloc(sizeof(char)*5);// HARDCODED
     int n;
 
     //VERIFICAR ARGUMENTOS
 
     while(fgets(buffer,SIZE_STRING,stdin)){
-        n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
+        n=sscanf(buffer,"%s %s %s\n",com,arg1,arg2); 
         strcpy(buffer, "");
 
 
@@ -303,11 +346,11 @@ void processCommands(){
             
         else if(strcmp(com,"login")==0){
             sprintf(buffer, "LOG %s %s\n", arg1, arg2);
-            //O QUE É SUPOSTO RESPONDER OH BURRO
+            
             if(!isLoggedIn)
                 commandLogin(buffer, arg1, arg2);
             else
-                printf("FUCK YOU BITCH JA DERAM LOGIN\n");
+                printf("Already logged in\n");
         }
 
         else if(strcmp(com,"logout")==0){
@@ -315,7 +358,7 @@ void processCommands(){
             if(isLoggedIn)
                 commandLogout(buffer);
             else
-                printf("ATAO PRIMO NINGUEM TA LOGADO QUERES DAR LOGOUT?\n");
+                printf("No login\n");
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
@@ -327,15 +370,29 @@ void processCommands(){
             commandGroups(buffer);
         }
 
-        else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){
-            sprintf(buffer, "GSR %s %s %s\n", currentID, arg1, arg2);
+        else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){       
+            sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
             commandSubscribe(buffer);
         }    
 
+        else if(strcmp(com,"unsubscribe")==0 || strcmp(com,"u")==0){       
+            sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
+            commandUnsubscribe(buffer);
+        }   
+
+        else if(n == 2 && (strcmp(com,"select")==0 || strcmp(com,"sag")==0)){  //no of arguments have to be verified locally 
+            commandSelect(arg1);
+        }  
+
+        else if(n == 1 && (strcmp(com,"showgid")==0 || strcmp(com,"sg")==0)){   //no of arguments have to be verified locally 
+            commandShowGID();
+        }  
         else if(strcmp(com,"exit")==0)
             //fechar TCP
             exit(0);
-                
+        else
+            fprintf(stderr, "Invalid command!\n");
+        
     }
 }
 
@@ -343,7 +400,7 @@ int main(int argc, char *argv[]){
 
     DSIP = (char*) malloc(sizeof(char)); //ip adresses have 4 bytes
     DSport = (char*) malloc(sizeof(char));
-    currentID = (char*) malloc(sizeof(char) * 5);
+    currentUID = (char*) malloc(sizeof(char) * 5);
     currentPass = (char*) malloc(sizeof(char) * 8);
 
     verifyArguments(argc, argv);

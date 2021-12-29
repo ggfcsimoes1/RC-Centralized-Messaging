@@ -7,6 +7,7 @@
 #define IPV4_SIZE 12
 #define GROUP_NUMBER 62
 #define SIZE_STRING 128
+#define SIZE_GROUP_NAMES 24
 
 extern char* DSIP;
 extern char* DSport;

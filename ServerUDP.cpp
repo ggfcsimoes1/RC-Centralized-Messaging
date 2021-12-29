@@ -68,18 +68,18 @@ bool verifyPassword(char*fileDirectory, char* password,int UID,char* buffer){
 bool logout(int UID){
 
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
-	bool sucess = false;
+	bool success = false;
 
 	sprintf(fileDirectory, "USERS/%d/%d_login.txt", UID, UID);
 
 	int rm = remove(fileDirectory);
 
 	if(rm == 0 || errno==ENOENT){
-		sucess = true;
+		success = true;
 	}
 
 	free(fileDirectory);
-	return sucess;
+	return success;
 }
 
 bool isLoggedIn(char* fileDirectory){
@@ -245,7 +245,7 @@ void comGroups(char* buffer){ //implementar messageID
 void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 	
 	FILE *fp;
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs;
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
 
 	printf("%d\n", atoi(GID));
 
@@ -255,7 +255,7 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 		sprintf(buffer, "RGS E_USR\n");
 		return;
 	}
-	else if(strlen(GID) != 2 || atoi(GID) > currentGroups || atoi(GID) < 0){
+	else if(strlen(GID) != 2 || !isdigit(GID[0]) || !isdigit(GID[1]) ||atoi(GID) > currentGroups || atoi(GID) < 0){
 		sprintf(buffer, "RGS E_GRP\n");
 		return;
 	}
@@ -271,9 +271,10 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 	fclose(fp);
 
 	
-	if(strcmp("00", GID) == 0 && currentGroups < 99){
+	if(strcmp("00", GID) == 0 && currentGroups < 99){ //create a new group...
 		
 		mkdir("GROUPS", 0700);
+		currentGroups++; //increment group number
 		sprintf(fileDirectory, "GROUPS/%02d", currentGroups);
 		if(mkdir(fileDirectory, 0700)!= 0){
 			sprintf(buffer, "ERR\n");
@@ -283,14 +284,13 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 
 		sprintf(fileDirectory, "GROUPS/%02d/MSG", currentGroups);
 		if(mkdir(fileDirectory, 0700)!= 0){
-			sprintf(buffer, "ERR\n");
+			sprintf(buffer, "ERR\n");	
 			free(fileDirectory);
 			return;
 		}
-
-		currentGroups++;
+	
 		sprintf(fileDirectory, "GROUPS/%02d/%02d_name.txt", currentGroups, currentGroups);
-
+		printf("dir %s\n", fileDirectory);
 		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
 			free(fileDirectory);
@@ -302,7 +302,6 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 		fclose(fp);
 
 		sprintf(fileDirectory, "GROUPS/%02d/%d.txt", currentGroups, UID);
-
 		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
 			free(fileDirectory);
@@ -315,11 +314,41 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 		free(fileDirectory);
 		return;
 	} 
-	else{
+	else if (strcmp("00", GID) != 0){ //subscribe to an existing group, check if they're valid digits and that the group exists
+		sprintf(fileDirectory, "GROUPS/%02d/%d.txt", currentGroups, UID);
+		if((fp = fopen(fileDirectory, "w+")) == NULL){
+			sprintf(buffer, "ERR\n");
+			free(fileDirectory);
+			return;
+		}
+	} 
+	else if (strcmp("00",GID)==0) //when there's 99 groups registered already (directory is full)
 		sprintf(buffer, "E_FULL");
+}
+
+void comUnsubscribe(char* buffer, int UID, char* GID){
+
+	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+	sprintf(fileDirectory, "GROUPS/%02d/%d.txt", currentGroups, UID);
+
+	if(strlen(GID) != 2 || !isdigit(GID[0]) || !isdigit(GID[1]) ||atoi(GID) > currentGroups || atoi(GID) < 0){ // check if GID is valid
+		sprintf(buffer, "RGU E_GRP\n");
+		free(fileDirectory);
+		return;
 	}
-
-
+	
+	int removeStatus = remove(fileDirectory);
+	if(removeStatus == 0){ //if it was able to remove
+		sprintf(buffer, "RGU OK\n");
+	}
+	else if (removeStatus != 0 && errno==ENOENT){ //user wasn't registered (invalid UID)
+		sprintf(buffer, "RGU E_USR\n");
+	}
+	else{
+		sprintf(buffer, "RGU NOK\n");
+	}
+	free(fileDirectory);
+	return;
 }
 
 char* processCommands(char* command){
@@ -390,6 +419,15 @@ char* processCommands(char* command){
 		else
 			sprintf(buffer, "ERR\n");
 	}
+
+	else if(strcmp(com,"GUR")==0){
+		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		if(n==3){
+			comUnsubscribe(buffer,arg1,arg2);
+		}
+		else
+			sprintf(buffer, "ERR\n");
+	}	
 
     free(com);
     free(arg2);

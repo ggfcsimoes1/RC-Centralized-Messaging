@@ -15,3 +15,5 @@ Projeto de Redes
 # Dúvidas
 
 - Perguntar acerca do timeout, funcionamento do TimerOFF e TimerON, como proceder no timeout (anular operaçao, tentar de novo, etc.)
+- Necessário verificar validade de GID? (select)
+- Verificação de numero de argumentos é feita localmente e no server?
