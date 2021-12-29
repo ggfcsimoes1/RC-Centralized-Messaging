@@ -240,17 +240,18 @@ void commandGroups(char* message){
 }
 
 void commandSubscribe(char* message){
+    char* GID = (char*) malloc(sizeof(char)* 3);
+    
     char* response = clientSend(message);
-
+    
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Subscribe error\n");
     }
     else if(strcmp("RGS OK\n", response) == 0){
         printf("Accepted Subscription!\n");
     }
-    else if(strcmp("RGS NEW GID\n", response) == 0){
-        //MODIFICAR
-        printf("Accepted Subscription!\n");
+    else if(sscanf(response, "RGS NEW %s", GID) == 1){
+        printf("Accepted Subscription!\nGID: %s\n", GID);
     }
     else if(strcmp("RGS E_USR\n",response) == 0){    
         printf("Not Accepted Subscription!\n");
@@ -275,10 +276,9 @@ void commandSubscribe(char* message){
 void processCommands(){
     
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
-    char *com,*pass,*UID;
-    com=(char*) malloc(sizeof(char)*SIZE_STRING);
-    arg2=(char*) malloc(sizeof(char)*8);
-    arg1=(char*) malloc(sizeof(char)*5);// HARDCODED
+    char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
+    char* arg2=(char*) malloc(sizeof(char)*8);
+    char* arg1=(char*) malloc(sizeof(char)*5);// HARDCODED
     int n;
 
     //VERIFICAR ARGUMENTOS
