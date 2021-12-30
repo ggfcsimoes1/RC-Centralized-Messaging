@@ -315,6 +315,16 @@ void commandShowGID(){
         printf("No group selected!\n");
 }
 
+void commandMyGroups(char* message){
+   if (isLoggedIn){ 
+        
+        char* response = clientSend(message);
+        printf("%s\n",response);
+    }
+    else 
+        printf("No login\n");
+}
+
 void processCommands(){
     
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
@@ -335,9 +345,13 @@ void processCommands(){
             continue;
 
         if(strcmp(com,"reg")==0){
-            
+            if(n==3){
                 sprintf(buffer, "REG %s %s\n", arg1, arg2);
                 commandRegister(buffer);
+            }
+            else
+                printf("zaga zaga\n");
+
            
 
         }
@@ -413,6 +427,10 @@ void processCommands(){
 
         else if(n == 1 && (strcmp(com,"showgid")==0 || strcmp(com,"sg")==0)){   //no of arguments have to be verified locally 
             commandShowGID();
+        }  
+        else if(n == 1 && (strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0)){   //no of arguments have to be verified locally 
+            sprintf(buffer, "GLM %s\n", currentUID);
+            commandMyGroups(buffer);
         }  
         else if(strcmp(com,"exit")==0)
             //fechar TCP
