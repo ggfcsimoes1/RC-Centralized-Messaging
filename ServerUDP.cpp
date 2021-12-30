@@ -210,6 +210,8 @@ void comGroups(char* buffer){ //implementar messageID
 	int i=0;
 	FILE *fp;
 	char GIDname[30];
+
+	
 	
 	d = opendir("GROUPS");
 
@@ -358,15 +360,16 @@ char* processCommands(char* command){
 	char* arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n,arg1;
-  
-    n=sscanf(command,"%s",com); 
+	n=sscanf(command, "%[^ ] %d %[^ ] %[^ ]\n",com, &arg1, arg2, arg3);
+    printf("%d\n",n);
+	
 
     if(n<1)
 		sprintf(buffer, "ERR\n");
         
 
     if(strcmp(com,"REG")==0 ){
-		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		
 		if(n==3){
 			comRegister(buffer,arg1,arg2);
 		}
@@ -375,7 +378,7 @@ char* processCommands(char* command){
     }
             
     else if(strcmp(com,"UNR")==0){
-		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		
 		if(n==3)
         	comUnregister(buffer,arg1,arg2);
 		else
@@ -383,7 +386,7 @@ char* processCommands(char* command){
 	}
         
     else if(strcmp(com,"LOG")==0){
-		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		
 		if(n==3)
         	comLogin(buffer,arg1,arg2);
 		else
@@ -391,7 +394,7 @@ char* processCommands(char* command){
 	}
 
     else if(strcmp(com,"OUT")==0){
-		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		
 		if(n==3)
         	comLogout(buffer,arg1,arg2);
 		else
@@ -412,7 +415,7 @@ char* processCommands(char* command){
 	}
 
 	else if(strcmp(com,"GSR")==0){
-		n=sscanf(command, "%s %d %s %s\n",com, &arg1, arg2, arg3);
+		
 		if(n==4){
 			comSubscribe(buffer,arg1,arg2,arg3);
 		}
@@ -421,7 +424,7 @@ char* processCommands(char* command){
 	}
 
 	else if(strcmp(com,"GUR")==0){
-		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+		
 		if(n==3){
 			comUnsubscribe(buffer,arg1,arg2);
 		}
@@ -431,6 +434,7 @@ char* processCommands(char* command){
 
     free(com);
     free(arg2);
+	free(arg3);
 	return buffer;
 }
 

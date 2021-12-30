@@ -327,7 +327,7 @@ void processCommands(){
     //VERIFICAR ARGUMENTOS
 
     while(fgets(buffer,SIZE_STRING,stdin)){
-        n=sscanf(buffer,"%s %s %s\n",com,arg1,arg2); 
+        n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
         strcpy(buffer, "");
 
 
@@ -335,49 +335,76 @@ void processCommands(){
             continue;
 
         if(strcmp(com,"reg")==0){
-            sprintf(buffer, "REG %s %s\n", arg1, arg2);
-            commandRegister(buffer);
+            
+                sprintf(buffer, "REG %s %s\n", arg1, arg2);
+                commandRegister(buffer);
+           
+
         }
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
-            sprintf(buffer, "UNR %s %s\n", arg1, arg2);
-            commandUnregister(buffer);
+            
+                sprintf(buffer, "UNR %s %s\n", arg1, arg2);
+                commandUnregister(buffer);
+            
+            
         }
             
         else if(strcmp(com,"login")==0){
-            sprintf(buffer, "LOG %s %s\n", arg1, arg2);
             
-            if(!isLoggedIn)
-                commandLogin(buffer, arg1, arg2);
-            else
-                printf("Already logged in\n");
+                sprintf(buffer, "LOG %s %s\n", arg1, arg2);
+            
+                if(!isLoggedIn)
+                    commandLogin(buffer, arg1, arg2);
+                else
+                    printf("Already logged in\n");
+            
+            
+
+            
         }
 
         else if(strcmp(com,"logout")==0){
-            sprintf(buffer, "OUT %s %s\n", arg1, arg2);
-            if(isLoggedIn)
-                commandLogout(buffer);
-            else
-                printf("No login\n");
+            
+                sprintf(buffer, "OUT %s %s\n", arg1, arg2);
+                if(isLoggedIn)
+                    commandLogout(buffer);
+                else
+                    printf("No login\n");
+                        
+
+           
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
-            commandShowUID();
+            
+                commandShowUID();
+            
         }
 
         else if(strcmp(com,"groups")==0 || strcmp(com,"gl")==0){
-            sprintf(buffer, "GLS\n");
-            commandGroups(buffer);
+            
+                sprintf(buffer, "GLS\n");
+                commandGroups(buffer);
+                       
+            
         }
 
-        else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){       
-            sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
-            commandSubscribe(buffer);
+        else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){  
+            
+                sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
+                commandSubscribe(buffer);
+            
+           
+            
         }    
 
-        else if(strcmp(com,"unsubscribe")==0 || strcmp(com,"u")==0){       
-            sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
-            commandUnsubscribe(buffer);
+        else if(strcmp(com,"unsubscribe")==0 || strcmp(com,"u")==0){  
+            
+                sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
+                commandUnsubscribe(buffer);
+              
+            
         }   
 
         else if(n == 2 && (strcmp(com,"select")==0 || strcmp(com,"sag")==0)){  //no of arguments have to be verified locally 
