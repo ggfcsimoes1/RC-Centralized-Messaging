@@ -9,6 +9,7 @@
 #define SIZE_STRING 128
 #define SIZE_GROUP_NAMES 24
 
+
 extern char* DSIP;
 extern char* DSport;
 extern char* currentID;
@@ -18,7 +19,7 @@ extern bool isLoggedIn;
 void getDefaultPort();
 void getDefaultIP();
 void parseArgs(int numArgs,char *args[]);
-char* clientSend(char* message);
+char* clientSend(char* message, int sizeString);
 void commandRegister(char* message);
 void commandUnregister(char* message);
 void commandLogin(char* message, char* UID, char* pass);

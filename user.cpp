@@ -101,7 +101,7 @@ void parseArgs(int numArgs,char *args[]){
         }
     }
 }
-char* clientSend(char* message){
+char* clientSend(char* message, int sizeString){
     
     int fd,errcode;
     ssize_t n;
@@ -126,10 +126,11 @@ char* clientSend(char* message){
     addrlen=sizeof(addr);
 
     free(message);
-    message = (char*) malloc(sizeof(char)* SIZE_STRING);
+
+    message = (char*) malloc(sizeof(char)* sizeString);
 
     TimerON(fd);
-    n=recvfrom(fd,message,SIZE_STRING,0,(struct sockaddr*)&addr,&addrlen); //recebe mensagens do servidor
+    n=recvfrom(fd,message,sizeString,0,(struct sockaddr*)&addr,&addrlen); //recebe mensagens do servidor
 
     if(errno == EAGAIN){  
         printf("Timeout occured!\n");
@@ -144,7 +145,7 @@ char* clientSend(char* message){
 }
 
 void commandRegister(char* message){
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
 
     printf("%s\n", response);
     if(strcmp("ERR\n",response)==0)
@@ -167,7 +168,7 @@ void commandUnregister(char* message){
 
     //fazer logout
 
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Un-Registration error\n");
 
@@ -182,7 +183,7 @@ void commandUnregister(char* message){
 
 
 void commandLogin(char* message, char* UID, char* pass){
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Login error\n");
     }
@@ -203,7 +204,7 @@ void commandLogin(char* message, char* UID, char* pass){
 }
 
 void commandLogout(char* message){
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
     }
@@ -230,9 +231,9 @@ void commandShowUID(){
 }
 
 void commandGroups(char* message){
-    message = (char*) realloc(message, 10000);
+    
 
-    char* response = clientSend(message);
+    char* response = clientSend(message,10000);
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
     }
@@ -243,7 +244,7 @@ void commandGroups(char* message){
 void commandSubscribe(char* message){
     char* GID = (char*) malloc(sizeof(char)* 3);
     
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
     
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Subscribe error\n");
@@ -276,7 +277,7 @@ void commandSubscribe(char* message){
 
 void commandUnsubscribe(char* message){
     char* GID = (char*) malloc(sizeof(char)* 3);
-    char* response = clientSend(message);
+    char* response = clientSend(message,SIZE_STRING);
 
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Unsubscribe error\n");
@@ -318,7 +319,7 @@ void commandShowGID(){
 void commandMyGroups(char* message){
    if (isLoggedIn){ 
         
-        char* response = clientSend(message);
+        char* response = clientSend(message,10000);
         printf("%s\n",response);
     }
     else 
