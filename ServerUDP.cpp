@@ -17,10 +17,58 @@
 #include <dirent.h>
 
 
+
 using namespace std;
 
 int currentGroups=0; //number of groups in the directory
 
+void ServerTCP(){
+    int newfd, fd, errcode;
+    ssize_t n;
+    socklen_t addrlen;
+    struct addrinfo hints, *res;
+    struct sockaddr_in addr;
+    char buffer[128];
+	char * buffer2;
+    
+
+    fd = socket(AF_INET, SOCK_STREAM,0);
+    if(fd==-1) exit(1);
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    errcode = getaddrinfo(NULL, PORT, &hints, &res);
+    if((errcode)!= 0) exit(1);
+
+    n = bind(fd, res->ai_addr, res->ai_addrlen);
+    if(n == -1) exit(1);
+
+    if(listen(fd,5) == -1) exit(1);
+
+    while(1){
+        addrlen = sizeof(addr);
+        if((newfd=accept(fd, (struct sockaddr*) &addr, &addrlen))==-1)
+            exit(1);
+        n = read(newfd, buffer, 128);
+        if(n==-1) exit(1);
+        write(1, "received: ", 10); 
+        write(1, buffer, n);
+
+        
+		buffer2 = processCommands(buffer);
+
+		n = write(newfd, buffer2, sizeof(buffer));
+        if(n==-1) exit(1);
+
+        close(newfd);
+    }
+
+    freeaddrinfo(res);
+    close(fd);
+}
 
 void getNumberOfGroups(){
 	DIR *d;
@@ -223,12 +271,14 @@ void comGroups(char* buffer){ //implementar messageID
 				continue;
 
 			sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+
 			fp=fopen(GIDname,"r");
-			if(fp)	{
+			if(fp!=NULL)	{
 				fscanf(fp,"%24s",GIDname);
 				fclose(fp);
 			}
-			sprintf(buffer, "%s %s %s", buffer,dir->d_name, GIDname);
+
+			sprintf(buffer, "%s %s %s 0000", buffer, dir->d_name, GIDname);
 			++i;
 			if(i==99)
 				break;
@@ -247,8 +297,6 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 	FILE *fp;
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
 	char* name = (char*) malloc(sizeof(char)*SIZE_STRING);
-
-	printf("%d\n", atoi(GID));
 
 	sprintf(fileDirectory, "USERS/%d/%d_pass.txt", UID, UID);
 
@@ -302,7 +350,7 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 
 		fclose(fp);
 
-		sprintf(fileDirectory, "GROUPS/%02d/%d.txt", currentGroups, UID);
+		sprintf(fileDirectory, "GROUPS/%02d/%05d.txt", currentGroups, UID);
 		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
 			free(fileDirectory);
@@ -340,10 +388,7 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 			
 		}
 
-		
-
-
-		sprintf(fileDirectory, "GROUPS/%s/%d.txt", GID, UID);
+		sprintf(fileDirectory, "GROUPS/%s/%05d.txt", GID, UID);
 		if((fp = fopen(fileDirectory, "w+")) == NULL){
 			sprintf(buffer, "ERR\n");
 			free(fileDirectory);
@@ -362,7 +407,7 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 void comUnsubscribe(char* buffer, int UID, char* GID){
 
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
-	sprintf(fileDirectory, "GROUPS/%s/%d.txt", GID, UID);
+	sprintf(fileDirectory, "GROUPS/%s/%05d.txt", GID, UID);
 
 	if(strlen(GID) != 2 || !isdigit(GID[0]) || !isdigit(GID[1]) ||atoi(GID) > currentGroups || atoi(GID) < 0){ // check if GID is valid
 		sprintf(buffer, "RGU E_GRP\n");
@@ -383,17 +428,30 @@ void comUnsubscribe(char* buffer, int UID, char* GID){
 	free(fileDirectory);
 	return;
 }
-void comMyGroups(char* buffer,int arg1){
+
+void comMyGroups(char* buffer,int uid){
 	DIR *d;
 	struct dirent *dir;
 	int i=0,numGroups=0;
 	FILE *fp;
 	char GIDname[30];
-	char* aux=(char*)malloc(sizeof(char)*10000);
-	strcpy(aux,"");
-	d = opendir("GROUPS");
+	char* aux=(char*)malloc(sizeof(char)*10000);// Alterar valor
 
-	strcpy(buffer,"");
+	memset(aux, 0, sizeof(aux));
+	sprintf(aux, "USERS/%d/%d_pass.txt", uid, uid);
+
+	if((fp = fopen(aux, "r")) == NULL){
+		sprintf(buffer, "RGM E_USR\n");
+		free(aux);
+		return;
+	}
+
+	fclose(fp);
+
+	memset(aux, 0, sizeof(aux));
+	memset(buffer, 0, sizeof(buffer));
+
+	d = opendir("GROUPS");
 
 	if (d)	{
 		while ((dir = readdir(d)) != NULL)	{
@@ -402,10 +460,9 @@ void comMyGroups(char* buffer,int arg1){
 			if(strlen(dir->d_name)>2)
 				continue;
 
-			sprintf(GIDname,"GROUPS/%s/%d.txt",dir->d_name,arg1);
+			sprintf(GIDname,"GROUPS/%s/%05d.txt",dir->d_name,uid);
 			fp=fopen(GIDname,"r");
-			if(fp)	{
-				
+			if(fp != NULL)	{
 				fclose(fp);
 				numGroups++;
 				sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
@@ -415,8 +472,7 @@ void comMyGroups(char* buffer,int arg1){
 					fclose(fp);
 				}
 
-				sprintf(aux, "%s %s %s", aux,dir->d_name, GIDname);
-				
+				sprintf(aux, "%s %s %s 0000", aux, dir->d_name, GIDname);	
 			}
 			
 			++i;
@@ -438,6 +494,49 @@ void comMyGroups(char* buffer,int arg1){
 	free(aux);
 }
 
+void comUList(char* buffer,int gid){
+	DIR *d;
+	struct dirent *dir;
+	FILE *fp;
+	char GIDname[30], user[6];
+
+	memset(buffer, 0, sizeof(buffer));
+	sprintf(buffer, "GROUPS/%02d", gid);
+	d = opendir(buffer);
+
+	memset(buffer, 0, sizeof(buffer));
+
+	if (d)	{
+		sprintf(GIDname,"GROUPS/%02d/%02d_name.txt", gid, gid);
+		fp=fopen(GIDname,"r");
+		if(fp!=NULL){
+			fscanf(fp,"%24s",GIDname);
+			sprintf(buffer, "RUL OK %s", GIDname);
+			fclose(fp);
+		}
+		else{
+			sprintf(buffer, "ERR\n");
+			return;
+		}
+
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			if(strlen(dir->d_name)!=9)
+				continue;
+			
+			sscanf(dir->d_name, "%[^.]", user);
+			sprintf(buffer, "%s %s", buffer, user);
+		}
+
+		closedir(d);
+	}
+	else if(errno == ENOENT)
+		sprintf(buffer, "RUL NOK\n");
+	else 
+		sprintf(buffer, "ERR\n");
+}
+
 char* processCommands(char* command){
 	char* groupNames;
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
@@ -454,6 +553,7 @@ char* processCommands(char* command){
 
     if(strcmp(com,"REG")==0 ){
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+
 		if(n==3){
 			comRegister(buffer,arg1,arg2);
 		}
@@ -463,6 +563,7 @@ char* processCommands(char* command){
             
     else if(strcmp(com,"UNR")==0){
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+
 		if(n==3)
         	comUnregister(buffer,arg1,arg2);
 		else
@@ -471,6 +572,7 @@ char* processCommands(char* command){
         
     else if(strcmp(com,"LOG")==0){
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+
 		if(n==3)
         	comLogin(buffer,arg1,arg2);
 		else
@@ -479,6 +581,7 @@ char* processCommands(char* command){
 
     else if(strcmp(com,"OUT")==0){
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+
 		if(n==3)
         	comLogout(buffer,arg1,arg2);
 		else
@@ -486,6 +589,7 @@ char* processCommands(char* command){
 	}
 
 	else if(strcmp(com,"GLS")==0){
+		
 		if(n==1){
 			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));
         	comGroups(groupNames);
@@ -500,6 +604,7 @@ char* processCommands(char* command){
 
 	else if(strcmp(com,"GSR")==0){
 		n=sscanf(command, "%s %d %s %s\n",com, &arg1, arg2, arg3);
+
 		if(n==4){
 			comSubscribe(buffer,arg1,arg2,arg3);
 		}
@@ -509,6 +614,7 @@ char* processCommands(char* command){
 
 	else if(strcmp(com,"GUR")==0){
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
+
 		if(n==3){
 			comUnsubscribe(buffer,arg1,arg2);
 		}
@@ -517,13 +623,22 @@ char* processCommands(char* command){
 	}
 	else if(strcmp(com,"GLM")==0){
 		n=sscanf(command, "%s %d\n",com, &arg1);
+
 		if(n==2){
-			
 			comMyGroups(buffer,arg1);
 		}
 		else
 			sprintf(buffer, "ERR\n");
-	}	
+	}
+	else if(strcmp(com,"ULS")==0){
+		n=sscanf(command, "%s %d\n",com, &arg1);
+
+		if(n==2){
+			comUList(buffer,arg1);
+		}
+		else
+			sprintf(buffer, "ERR\n");
+	}
 
     free(com);
     free(arg2);
@@ -534,20 +649,20 @@ char* processCommands(char* command){
 
 int main(){
 
-	int fd,errcode;
+	/*int fd,errcode;
 	ssize_t n;
 	socklen_t addrlen;
 	struct addrinfo hints,*res;
 	struct sockaddr_in addr;
 	char buffer[128];
-	char * buffer2;
+	char * buffer2;*/
 	
 	char host[NI_MAXHOST],service[NI_MAXSERV];
 
-
 	getNumberOfGroups();
+	ServerTCP();
 
-	fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
+	/*fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
 	if (fd==1) //error
 		exit(1);
 
@@ -584,7 +699,7 @@ int main(){
 
 	}
 	freeaddrinfo(res);
-	close(fd);
+	close(fd);*/
 	exit(0);
 }
 

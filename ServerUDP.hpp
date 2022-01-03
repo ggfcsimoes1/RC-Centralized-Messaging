@@ -9,8 +9,6 @@
 #define PORT "58062"
 using namespace std;
 
-extern list <int> registeredUsers;
-
 void comRegister(char* command, int UID, char* pass);
 void comUnregister(char* buffer, int UID, char* pass);
 void comLogin(char* buffer, int UID, char* pass);
