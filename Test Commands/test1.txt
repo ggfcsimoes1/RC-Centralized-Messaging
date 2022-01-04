@@ -1,0 +1,4 @@
+reg 12345 password
+login 12345 password
+logout 12345 password
+exit

@@ -20,10 +20,100 @@
 
 using namespace std;
 
-int currentGroups=0; //number of groups in the directory
+int currentGroups = 0; //number of groups in the directory
+bool verboseMode = false;
 
-void ServerTCP(){
-    int newfd, fd, errcode;
+int setSocketUDP(struct addrinfo *res){
+	int fd,errcode;
+	ssize_t n;
+	socklen_t addrlen;
+	struct addrinfo hints;
+	
+	fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
+	if (fd==1) //error
+		exit(1);
+
+	memset(&hints,0,sizeof hints);
+	hints.ai_family=AF_INET; //IPV4
+	hints.ai_family=SOCK_DGRAM; //UDP socket
+	hints.ai_flags=AI_PASSIVE;
+
+	errcode=getaddrinfo(NULL, PORT, &hints, &res);
+	if(errcode!=0) //error
+		exit(1);
+
+	n=bind(fd,res->ai_addr, res->ai_addrlen);
+	if(n==-1)
+		exit(1);
+	
+	
+	return fd;
+}
+
+int setSocketTCP(struct addrinfo *res){
+	int fd, errcode;
+    ssize_t n;
+    socklen_t addrlen;
+    struct addrinfo hints;
+    struct sockaddr_in addr;
+    char buffer[128];
+	char * buffer2;
+    
+
+    fd = socket(AF_INET, SOCK_STREAM,0);
+    if(fd==-1) 
+		exit(1);
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    errcode = getaddrinfo(NULL, PORT, &hints, &res);
+    if((errcode)!= 0) 
+		exit(1);
+
+    n = bind(fd, res->ai_addr, res->ai_addrlen);
+    if(n == -1) 
+		exit(1);
+
+    if(listen(fd,5) == -1) 
+		exit(1);
+
+	return fd;
+}
+
+int receiveUDP(int fd){
+	int errcode;
+	ssize_t n;
+	socklen_t addrlen;
+	struct sockaddr_in addr;
+	char buffer[128];
+	char * buffer2;
+	char host[NI_MAXHOST],service[NI_MAXSERV];
+
+	addrlen=sizeof(addr);
+	n=recvfrom(fd,buffer,128,0,(struct sockaddr*) &addr, &addrlen);
+	if(n==-1)
+		return -1;
+	if((errcode=getnameinfo((struct sockaddr*)&addr,addrlen,host,sizeof host,service,sizeof service,0))!=0)
+		fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
+	else if (verboseMode){ //if the server is running with -v
+		printf("sent by [%s:%s]\n",host,service);
+		//dar print no process commands do GID e UID, e a descricao do comando
+	}
+	buffer2 = processCommands(buffer);
+	
+	n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
+	if(n==-1)
+		return -1;
+
+	//close(fd);
+	return 0;
+}
+
+/*void receiveTCP(int fd){
+    int newfd, errcode;
     ssize_t n;
     socklen_t addrlen;
     struct addrinfo hints, *res;
@@ -33,7 +123,7 @@ void ServerTCP(){
     
 
     fd = socket(AF_INET, SOCK_STREAM,0);
-    if(fd==-1) exit(1);
+    if(fd==-1) return -1;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -41,34 +131,36 @@ void ServerTCP(){
     hints.ai_flags = AI_PASSIVE;
 
     errcode = getaddrinfo(NULL, PORT, &hints, &res);
-    if((errcode)!= 0) exit(1);
+    if((errcode)!= 0) 
+		return -1;
 
     n = bind(fd, res->ai_addr, res->ai_addrlen);
-    if(n == -1) exit(1);
+    if(n == -1) 
+		return -1;
 
-    if(listen(fd,5) == -1) exit(1);
+    if(listen(fd,5) == -1) 
+		return -1;
+ 
+	addrlen = sizeof(addr);
+	if((newfd=accept(fd, (struct sockaddr*) &addr, &addrlen))==-1)
+		return;
+	n = read(newfd, buffer, 128);
+	if(n==-1) 
+		return -1;
+	write(1, "received: ", 10); 
+	write(1, buffer, n);
 
-    while(1){
-        addrlen = sizeof(addr);
-        if((newfd=accept(fd, (struct sockaddr*) &addr, &addrlen))==-1)
-            exit(1);
-        n = read(newfd, buffer, 128);
-        if(n==-1) exit(1);
-        write(1, "received: ", 10); 
-        write(1, buffer, n);
+	buffer2 = processCommands(buffer);
 
-        
-		buffer2 = processCommands(buffer);
+	n = write(newfd, buffer2, sizeof(buffer));
+	if(n==-1) 
+		return -1;
 
-		n = write(newfd, buffer2, sizeof(buffer));
-        if(n==-1) exit(1);
+	close(newfd);
 
-        close(newfd);
-    }
-
-    freeaddrinfo(res);
     close(fd);
-}
+	return 0;
+}*/
 
 void getNumberOfGroups(){
 	DIR *d;
@@ -85,7 +177,7 @@ void getNumberOfGroups(){
 			if(currentGroups==99)
 				break;	
 		}
-		printf("no of groups %d\n", currentGroups);
+		printf("Registered groups: %d\n", currentGroups); //tira isso, tira isso !
 		closedir(d);
 	}
 }
@@ -544,14 +636,18 @@ char* processCommands(char* command){
 	char* arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n,arg1;
-  
+
+
+
     n=sscanf(command,"%s",com); 
 
     if(n<1)
 		sprintf(buffer, "ERR\n");
         
+	if(verboseMode) printf("%s",command); //printing the command if the server is running with -v
 
     if(strcmp(com,"REG")==0 ){
+		
 		n=sscanf(command, "%s %d %s\n",com, &arg1, arg2);
 
 		if(n==3){
@@ -647,59 +743,86 @@ char* processCommands(char* command){
 
 
 
-int main(){
+int main(int argc, char *argv[]){
 
-	/*int fd,errcode;
-	ssize_t n;
-	socklen_t addrlen;
-	struct addrinfo hints,*res;
+	int fdUDP,fdTCP, afd;
+	struct addrinfo *res;
 	struct sockaddr_in addr;
-	char buffer[128];
-	char * buffer2;*/
-	
-	char host[NI_MAXHOST],service[NI_MAXSERV];
+	socklen_t addrlen;
+	fd_set rfds;
+	enum {idle,busy} state;
+	int newfd,maxfd,counter;
+
+	if(strcmp(argv[argc-1],"-v") == 0){ //checking if -v flag was introduced
+		verboseMode= true;
+		printf("Running in verbose mode\n");
+	}
+
 
 	getNumberOfGroups();
-	ServerTCP();
-
-	/*fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
-	if (fd==1) //error
-		exit(1);
-
-	memset(&hints,0,sizeof hints);
-	hints.ai_family=AF_INET; //IPV4
-	hints.ai_family=SOCK_DGRAM; //UDP socket
-	hints.ai_flags=AI_PASSIVE;
-
-	errcode=getaddrinfo(NULL, PORT, &hints, &res);
-	if(errcode!=0) //error
-		exit(1);
-
-	n=bind(fd,res->ai_addr, res->ai_addrlen);
-	if(n==-1)
-		exit(1);
-
+	
+	fdUDP = setSocketUDP(res);
+	fdTCP = setSocketTCP(res);
+	
+	//ServerTCP(fdTCP);
+	//ServerUDP(fdUDP);
+	
+	state=idle;
 	while(1){
-		addrlen=sizeof(addr);
-		n=recvfrom(fd,buffer,128,0,(struct sockaddr*) &addr, &addrlen);
-		if(n==-1)
-			exit(1);
-		if((errcode=getnameinfo((struct sockaddr*)&addr,addrlen,host,sizeof host,service,sizeof service,0))!=0)
-			fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
-		else{ //se tiver em modo verboso da print disto
-			printf("sent by [%s:%s]\n",host,service);
-			//dar print no process commands do GID e UID, e a descrição do comando
+		FD_ZERO(&rfds);
+		FD_SET(fdUDP,&rfds);
+		maxfd=fdUDP;
+		int errcode = 0; //0 - no error
+	
+		if(state==busy){
+			FD_SET(afd, &rfds);
+			maxfd=max(maxfd,afd);
 		}
-		buffer2 = processCommands(buffer);
+		counter=select(maxfd+1,&rfds, (fd_set*) NULL,(fd_set*) NULL,(struct timeval *) NULL);
+		if(counter<=0)/*error*/
+			break; //exit(1);
+
+		if(FD_ISSET(fdTCP,&rfds)){ //TCP ready to be read
+			
+			addrlen=sizeof(addr);
+			if((newfd=accept(fdTCP,(struct sockaddr*)&addr,&addrlen))==-1) /*error*/
+				break;
+
+			switch(state){
+				case idle: 
+					afd=newfd;state=busy;
+					break;
+				case busy: /* ... *///write “busy\n” in newfd
+					close(newfd); 
+					break;
+			}
+		}
+
+		if(FD_ISSET(afd,&rfds)){
+			/*if((n=read(afd,buffer,128))!=0){
+				if(n==-1)
+					break;
+				write buffer in afd
+	
+			}
+			else{
+				close(afd);
+				state=idle;
+			} connection closed by peer */
+		}
+
+		if(FD_ISSET(fdUDP,&rfds)){ //UDP ready to be read
+			errcode = receiveUDP(fdUDP);
+			if(errcode == -1) break; //error occured
+
+		}
+
 		
-		n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
-		if(n==-1)
-			exit(1);
-
-
 	}
+
 	freeaddrinfo(res);
-	close(fd);*/
+	close(fdUDP);
+	
 	exit(0);
 }
 
