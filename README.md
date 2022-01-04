@@ -7,9 +7,12 @@ Projeto de Redes
 - [x] Arranjar receção das mensagens por parte do servidor.
 - [x] Fazer timer para receção de mensagens.
 - [x] Fazer logout, showid, e exit.
-- [ ] Command unregister, fazer unsubscribe.
+- [x] Command unregister, fazer unsubscribe.
 - [x] Fazer makefile.
 - [ ] Mudar UID para char*, por causa das verificações.
+- [ ] Implementar concorrência TCP
+- [ ] Fazer um comando exit decente
+- [ ] Separar o código em ficheiros
 
 
 # Dúvidas
