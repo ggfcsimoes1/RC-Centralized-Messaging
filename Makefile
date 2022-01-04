@@ -15,14 +15,14 @@ DS.o: ServerUDP.cpp ServerUDP.hpp
 user.o: user.cpp user.hpp
 	$(CC) $(CFLAGS) -o user.o -c user.cpp
 
-clean:
+clean: #Removes .o files and output files from testing
 	@echo Cleaning...
 	rm -f fs/*.o *.o user DS *.txt
 
-rmusers:
+rmusers: #Removes "USERS" folder
 	@echo Cleaning Users...
 		rm -r USERS
 
-rmgroups:
+rmgroups: #Removes "GROUPS" folder
 	@echo Cleaning Groups...
 		rm -r GROUPS
