@@ -17,4 +17,12 @@ user.o: user.cpp user.hpp
 
 clean:
 	@echo Cleaning...
-	rm -f fs/*.o *.o user DS
+	rm -f fs/*.o *.o user DS *.txt
+
+rmusers:
+	@echo Cleaning Users...
+		rm -r USERS
+
+rmgroups:
+	@echo Cleaning Groups...
+		rm -r GROUPS
