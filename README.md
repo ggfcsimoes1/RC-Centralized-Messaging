@@ -20,3 +20,6 @@ Projeto de Redes
 - Perguntar acerca do timeout, funcionamento do TimerOFF e TimerON, como proceder no timeout (anular operaçao, tentar de novo, etc.)
 - Necessário verificar validade de GID? (select)
 - Verificação de numero de argumentos é feita localmente e no server?
+- Server main: erros exit(1) ou continuar para o proximo comando?
+- Tratar SIGPIPE?? Se sim, exit(1) no write ou o q fazer??
+- Erro a meio de um comando, desfazer o q ja foi feito?

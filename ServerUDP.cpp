@@ -13,8 +13,9 @@
 #include <iterator>
 #include <algorithm>
 #include <errno.h>
-#include "ServerUDP.hpp"
+#include <signal.h>
 #include <dirent.h>
+#include "ServerUDP.hpp"
 
 
 
@@ -23,14 +24,15 @@ using namespace std;
 int currentGroups = 0; //number of groups in the directory
 bool verboseMode = false;
 
-int setSocketUDP(struct addrinfo *res){
+int setSocketUDP(){
 	int fd,errcode;
 	ssize_t n;
+	struct addrinfo *res;
 	socklen_t addrlen;
 	struct addrinfo hints;
 	
 	fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
-	if (fd==1) //error
+	if (fd==-1) //error
 		exit(1);
 
 	memset(&hints,0,sizeof hints);
@@ -46,13 +48,14 @@ int setSocketUDP(struct addrinfo *res){
 	if(n==-1)
 		exit(1);
 	
-	
+	freeaddrinfo(res);
 	return fd;
 }
 
-int setSocketTCP(struct addrinfo *res){
+int setSocketTCP(){
 	int fd, errcode;
     ssize_t n;
+	struct addrinfo *res;
     socklen_t addrlen;
     struct addrinfo hints;
     struct sockaddr_in addr;
@@ -80,6 +83,7 @@ int setSocketTCP(struct addrinfo *res){
     if(listen(fd,5) == -1) 
 		exit(1);
 
+	freeaddrinfo(res);
 	return fd;
 }
 
@@ -108,59 +112,61 @@ int receiveUDP(int fd){
 	if(n==-1)
 		return -1;
 
-	//close(fd);
 	return 0;
 }
 
-/*void receiveTCP(int fd){
-    int newfd, errcode;
-    ssize_t n;
-    socklen_t addrlen;
+void receiveTCP(int fd){
+    int errcode, i = 1;
+    ssize_t n, toWrite;
     struct addrinfo hints, *res;
-    struct sockaddr_in addr;
-    char buffer[128];
-	char * buffer2;
-    
+    char buffer[11];
+	char * buffer2, *message, *ptr;
 
-    fd = socket(AF_INET, SOCK_STREAM,0);
-    if(fd==-1) return -1;
+	message = NULL;
+    memset(buffer, 0, sizeof(buffer));
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
+    while((n=read(fd,buffer, 10)) != 0){
 
-    errcode = getaddrinfo(NULL, PORT, &hints, &res);
-    if((errcode)!= 0) 
-		return -1;
+        message =(char*) realloc(message, sizeof(char) * i * 10);
 
-    n = bind(fd, res->ai_addr, res->ai_addrlen);
-    if(n == -1) 
-		return -1;
+        if(i == 1){
+            memset(message, 0, sizeof(message));
+        }
 
-    if(listen(fd,5) == -1) 
-		return -1;
- 
-	addrlen = sizeof(addr);
-	if((newfd=accept(fd, (struct sockaddr*) &addr, &addrlen))==-1)
-		return;
-	n = read(newfd, buffer, 128);
-	if(n==-1) 
-		return -1;
-	write(1, "received: ", 10); 
-	write(1, buffer, n);
+        strcat(message, buffer);
+        
+        i++;
 
-	buffer2 = processCommands(buffer);
+		if(n < 10 || buffer[9] == '\n')
+			break;
 
-	n = write(newfd, buffer2, sizeof(buffer));
-	if(n==-1) 
-		return -1;
+		memset(buffer, 0, sizeof(buffer));
+    }
 
-	close(newfd);
+	if(n == -1){
+		exit(1);
+	}
 
-    close(fd);
-	return 0;
-}*/
+	printf("message:%s\n", message);
+
+	buffer2 = processCommands(message);
+
+	ptr = buffer2;
+    toWrite = strlen(buffer2);
+
+    while(toWrite > 0){
+        n=write(fd, ptr, toWrite);
+
+        if(n<=0)
+            exit(1);
+
+        toWrite-= n;
+        ptr+= n;
+    }
+
+	free(buffer2);
+	free(message);
+}
 
 void getNumberOfGroups(){
 	DIR *d;
@@ -182,6 +188,17 @@ void getNumberOfGroups(){
 	}
 }
 
+bool verifyArguments(char* buffer,char* password, int UID){
+	
+    if ((UID/100000) != 0 || strlen(password)!=8){ 
+        sprintf(buffer, "RRG NOK\n");
+
+        return false;
+    }
+    else
+        return true;
+}
+
 bool verifyPassword(char*fileDirectory, char* password,int UID,char* buffer){
 	FILE *fp;
 	bool verified=false;
@@ -189,10 +206,12 @@ bool verifyPassword(char*fileDirectory, char* password,int UID,char* buffer){
 
 	sprintf(fileDirectory,"USERS/%d/%d_pass.txt",UID ,UID);
 
-	if((fp=fopen(fileDirectory,"r"))==NULL){
-		sprintf(buffer, "ERR\n");
-		return verified;
-	}
+	if((fp=fopen(fileDirectory,"r"))==NULL ){
+        if(errno!=ENOENT)
+            sprintf(buffer, "ERR\n");
+        free(pass);
+        return verified;
+    }
 
 	fscanf(fp,"%s\n",pass);
 
@@ -242,13 +261,11 @@ void comRegister(char* buffer, int UID, char* pass){
 	char* directory = (char*) malloc(sizeof(char)* 12);
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 	
-	//ALDRABADO
-	if ((UID/100000) != 0 || strlen(pass)!=8){ 
-		sprintf(buffer, "RRG NOK\n");
-		free(directory);
-		free(fileDirectory);
-		return;
-	}
+	if(!verifyArguments(buffer,pass,UID)){
+        free(directory);
+        free(fileDirectory);
+        return;
+    }
 
 	mkdir("USERS",0700);
 	sprintf(directory, "USERS/%d", UID);
@@ -282,28 +299,50 @@ void comRegister(char* buffer, int UID, char* pass){
 
 void comUnregister(char* buffer, int UID, char* pass){
 
-	// DO unsubscribe
-	
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+    // DO unsubscribe
+    DIR *d;
+    struct dirent *dir;
+    int i=0;
+    char GIDname[30];
+    char *fileDirectory = (char*) malloc(sizeof(char) * SIZE_STRING);//HARDCODEDs
 
-	sprintf(buffer, "RUN NOK\n");
+    sprintf(buffer, "RUN NOK\n");
 
-	if(verifyPassword(fileDirectory,pass,UID,buffer)){
-		if(remove(fileDirectory)==0){
-			sprintf(fileDirectory,"USERS/%d", UID);
+    if(verifyPassword(fileDirectory,pass,UID,buffer)){
+        if(remove(fileDirectory)==0){
+            sprintf(fileDirectory,"USERS/%d", UID);
 
-			if(logout(UID) == false || rmdir(fileDirectory) != 0){
-				sprintf(buffer, "ERR\n");
-				free(fileDirectory);
-				return;
-			}
+            if(logout(UID) == false || rmdir(fileDirectory) != 0){
+                sprintf(buffer, "ERR\n");
+                free(fileDirectory);
+                return;
+            }
+            d = opendir("GROUPS");
+            if (d)    {
+                while ((dir = readdir(d)) != NULL)    {
+                    if(dir->d_name[0]=='.')
+                        continue;
+                    if(strlen(dir->d_name)>2)
+                        continue;
 
-			sprintf(buffer, "RUN OK\n");
-		}
-		else
-			sprintf(buffer, "ERR\n");	
-	}
-	free(fileDirectory);
+                    sprintf(GIDname,"GROUPS/%s/%05d.txt",dir->d_name,UID);
+
+                    if(remove(GIDname)!=0 && errno!=ENOENT)
+                        sprintf(buffer, "ERR\n");
+
+                    ++i;
+                    if(i==99)
+                        break;
+            }
+            closedir(d);
+            }
+
+            sprintf(buffer, "RUN OK\n");
+        }
+        else
+            sprintf(buffer, "ERR\n");
+    }
+    free(fileDirectory);
 }
 
 void comLogin(char* buffer, int UID, char* pass){
@@ -687,7 +726,7 @@ char* processCommands(char* command){
 	else if(strcmp(com,"GLS")==0){
 		
 		if(n==1){
-			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));
+			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
         	comGroups(groupNames);
 			free(com);
 			free(arg2);
@@ -721,7 +760,12 @@ char* processCommands(char* command){
 		n=sscanf(command, "%s %d\n",com, &arg1);
 
 		if(n==2){
-			comMyGroups(buffer,arg1);
+			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
+			comMyGroups(groupNames,arg1);
+			free(com);
+			free(arg2);
+			free(arg3);
+			return groupNames;
 		}
 		else
 			sprintf(buffer, "ERR\n");
@@ -730,7 +774,7 @@ char* processCommands(char* command){
 		n=sscanf(command, "%s %d\n",com, &arg1);
 
 		if(n==2){
-			comUList(buffer,arg1);
+			comUList(buffer,arg1);//-----------------AJUSTAR BUFFER
 		}
 		else
 			sprintf(buffer, "ERR\n");
@@ -738,6 +782,7 @@ char* processCommands(char* command){
 
     free(com);
     free(arg2);
+	free(arg3);
 	return buffer;
 }
 
@@ -745,83 +790,76 @@ char* processCommands(char* command){
 
 int main(int argc, char *argv[]){
 
-	int fdUDP,fdTCP, afd;
-	struct addrinfo *res;
+	int fdUDP, fdTCP, newfd, maxfd;
+	struct sigaction action;
 	struct sockaddr_in addr;
 	socklen_t addrlen;
 	fd_set rfds;
-	enum {idle,busy} state;
-	int newfd,maxfd,counter;
+	pid_t pid;
+
+	memset(&action, 0, sizeof action);
+	action.sa_handler = SIG_IGN;
+	if(sigaction(SIGCHLD, &action, NULL) == -1)
+		exit(1);
 
 	if(strcmp(argv[argc-1],"-v") == 0){ //checking if -v flag was introduced
 		verboseMode= true;
 		printf("Running in verbose mode\n");
 	}
 
-
 	getNumberOfGroups();
+
+	fdUDP = setSocketUDP();
+	fdTCP = setSocketTCP();
 	
-	fdUDP = setSocketUDP(res);
-	fdTCP = setSocketTCP(res);
 	
-	//ServerTCP(fdTCP);
-	//ServerUDP(fdUDP);
-	
-	state=idle;
 	while(1){
+		int n = 0; 
+
 		FD_ZERO(&rfds);
 		FD_SET(fdUDP,&rfds);
-		maxfd=fdUDP;
-		int errcode = 0; //0 - no error
-	
-		if(state==busy){
-			FD_SET(afd, &rfds);
-			maxfd=max(maxfd,afd);
-		}
-		counter=select(maxfd+1,&rfds, (fd_set*) NULL,(fd_set*) NULL,(struct timeval *) NULL);
-		if(counter<=0)/*error*/
-			break; //exit(1);
+		FD_SET(fdTCP, &rfds);
+		maxfd = max(fdTCP,fdUDP);
 
+		n=select(maxfd+1,&rfds, (fd_set*) NULL,(fd_set*) NULL,(struct timeval *) NULL);
+		if(n <= 0)/*error*/
+			exit(1);
+
+		
 		if(FD_ISSET(fdTCP,&rfds)){ //TCP ready to be read
-			
 			addrlen=sizeof(addr);
-			if((newfd=accept(fdTCP,(struct sockaddr*)&addr,&addrlen))==-1) /*error*/
-				break;
+			
+			do newfd=accept(fdTCP,(struct sockaddr*)&addr,&addrlen);
+			while(newfd==-1 && errno==EINTR);
+			
+			if(newfd==-1)
+				exit(1);
 
-			switch(state){
-				case idle: 
-					afd=newfd;state=busy;
-					break;
-				case busy: /* ... *///write “busy\n” in newfd
-					close(newfd); 
-					break;
-			}
-		}
+			if((pid=fork())==-1)
+				exit(1);
+			else if(pid==0){
+				close(fdTCP);
 
-		if(FD_ISSET(afd,&rfds)){
-			/*if((n=read(afd,buffer,128))!=0){
-				if(n==-1)
-					break;
-				write buffer in afd
-	
+				receiveTCP(newfd);
+
+				close(newfd);
+				exit(0);
 			}
-			else{
-				close(afd);
-				state=idle;
-			} connection closed by peer */
+
+			do n=close(newfd);while(n==-1 && errno==EINTR);
+			if(n==-1)
+				exit(1);
 		}
 
 		if(FD_ISSET(fdUDP,&rfds)){ //UDP ready to be read
-			errcode = receiveUDP(fdUDP);
-			if(errcode == -1) break; //error occured
+			n = receiveUDP(fdUDP);
+			if(n == -1) 
+				exit(1); //error occured
 
 		}
-
-		
 	}
-
-	freeaddrinfo(res);
 	close(fdUDP);
+	close(fdTCP);
 	
 	exit(0);
 }

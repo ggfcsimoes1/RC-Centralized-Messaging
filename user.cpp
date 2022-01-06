@@ -151,12 +151,12 @@ char* clientSendUDP(char* message, int sizeString){
 
 char* clientSendTCP(char* message){
     int fd, errcode;
-    ssize_t n;
+    ssize_t n, toWrite;
     socklen_t addrlen;
     struct addrinfo hints, *res;
     struct sockaddr_in addr;
-    char buffer[128];
-    char * response;
+    char buffer[11];
+    char *response, *ptr;
     int i = 1;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -172,15 +172,25 @@ char* clientSendTCP(char* message){
     n = connect(fd, res-> ai_addr, res-> ai_addrlen);
     if(n==-1) exit(1);
 
-    n=write(fd, message, strlen(message));
-    if(n==-1) exit(1);
+    ptr = message;
+    toWrite = strlen(message);
+
+    while(toWrite > 0){
+        n=write(fd, ptr, toWrite);
+
+        if(n<=0)
+            exit(1);
+
+        toWrite-= n;
+        ptr+= n;
+    }
 
     response = NULL;
 
-    //memset(message, 0, sizeof(message));
     memset(buffer, 0, sizeof(buffer));
 
     while((n=read(fd,buffer, 10)) > 0){
+
         response =(char*) realloc(response, sizeof(char) * i * 10);
 
         if(i == 1){
@@ -188,9 +198,13 @@ char* clientSendTCP(char* message){
         }
 
         strcat(response, buffer);
-        memset(buffer, 0, sizeof(buffer));
-        
+
         i++;
+
+		if(n < 10 || buffer[9] == '\n')
+			break;
+
+		memset(buffer, 0, sizeof(buffer));
     }
 
     if(n == -1){
@@ -205,7 +219,6 @@ char* clientSendTCP(char* message){
 void commandRegister(char* message){
     char* response = clientSendUDP(message,SIZE_STRING);
 
-    printf("%s\n", response);
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Registration error\n");
 
@@ -220,25 +233,33 @@ void commandRegister(char* message){
     
     else   
         printf("Unexpected error\n");
+    
+    free(response);
 }
 
-void commandUnregister(char* message){
-
-    //fazer logout
-
+void commandUnregister(char* message, char* arg1){
     char* response = clientSendUDP(message,SIZE_STRING);
+
     if(strcmp("ERR\n",response)==0)
         fprintf(stderr,"Un-Registration error\n");
 
-    else if(strcmp("RUN OK\n",response)==0)  
-        printf("Accepted Un-Registration!\n"); 
+    else if(strcmp("RUN OK\n",response)==0) { 
+        printf("Accepted Un-Registration!\n");
 
-    else if(strcmp("RUN NOK\n",response)==0)      
+
+        if(isLoggedIn && strcmp(currentUID,arg1)==0){
+            isLoggedIn=false;
+        }
+
+    }
+    else if(strcmp("RUN NOK\n",response)==0)
         printf("Not Accepted Un-Registration!\n"); 
-    else   
+    else
         printf("Unexpected error\n");
-}
+    
+    free(response);
 
+}
 
 void commandLogin(char* message, char* UID, char* pass){
     char* response = clientSendUDP(message,SIZE_STRING);
@@ -259,6 +280,7 @@ void commandLogin(char* message, char* UID, char* pass){
     else{   
         printf("Unexpected error\n");
     }
+    free(response);
 }
 
 void commandLogout(char* message){
@@ -278,6 +300,7 @@ void commandLogout(char* message){
     else{ 
         printf("Unexpected error\n");
     }
+    free(response);
 }
 
 void commandShowUID(){
@@ -294,12 +317,14 @@ void commandGroups(char* message){
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Group error\n");
+        free(response);
         return;
     }
     
     n=sscanf(response,"%s %d %[^\n]",com, &ng, response); 
     if(n < 3){
         printf("Unexpected error\n");
+        free(response);
         return;
     }
     if(strcmp(com, "RGL")==0 && ng == 0){
@@ -316,6 +341,7 @@ void commandGroups(char* message){
     else{
         printf("Unexpected error\n");
     }
+    free(response);
 }
 
 void commandSubscribe(char* message){
@@ -350,6 +376,7 @@ void commandSubscribe(char* message){
     else{   
         printf("Unexpected error\n");
     }
+    free(response);
 }
 
 void commandUnsubscribe(char* message){
@@ -373,6 +400,8 @@ void commandUnsubscribe(char* message){
 
     else
         printf("Unexpected error\n");
+    
+    free(response);
     
 }
 
@@ -402,21 +431,24 @@ void commandMyGroups(char* message){
         printf("No login\n");
         return;
     }
-    
+
     response = clientSendUDP(message,10000);
         
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"My_Groups error\n");
+        free(response);
         return;
     }
     else if(strcmp("RGM E_USR\n", response)== 0){
         printf("Invalid User!\n");
+        free(response);
         return;
     }
     
     n=sscanf(response,"%s %d %[^\n]",com, &ng, response); 
-    if(n < 3){
+    if(n < 2){
         printf("Unexpected error\n");
+        free(response);
         return;
     }
 
@@ -435,49 +467,86 @@ void commandMyGroups(char* message){
     else{
         printf("Unexpected error\n");
     }
+
+    free(response);
 }
 
 void commandUList(char* message){
     char* response = clientSendTCP(message);
+    char* users = (char *) malloc(sizeof(char) * strlen(response));
     char com[4], gname[24], status[4];
     int n, uid;
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"UList error\n");
+        free(response);
         return;
     }
 
-    n=sscanf(response,"%s %s %s %[^\n]",com, status, gname, response);
+    n=sscanf(response,"%s %s %s %[^\n]",com, status, gname, users);
 
     if(n < 2){
         printf("Unexpected error\n");
+        free(response);
         return;
     }
-
-    strcat(response, " ~");// Stop while
 
     if(strcmp(com, "RUL")==0 && strcmp(status, "NOK")== 0){
         printf("Non Existing Group!\n");
     }
     else if(strcmp(com, "RUL")==0 && strcmp(status, "OK")==0){
-        printf("Subscribed users in %s:\n", gname);
+        
+        if(strcmp(users, "")==0){
+            printf("No users subscribed!\n");
+        }
+        else{
+            printf("Subscribed users in %s:\n", gname);
 
-        while(strcmp(response, "~")!= 0){
-            sscanf(response,"%d %[^\n]",&uid, response);
-            printf("> %05d\n", uid);
+            strcat(users, " ~");// Stop while
+
+            while(strcmp(users, "~")!= 0){
+                sscanf(users,"%d %[^\n]",&uid, users);
+                printf("> %05d\n", uid);
+            }
         }
     }
     else{
         printf("Unexpected error\n");
     }
+
+    free(users);
+    free(response);
+}
+
+void commandPost(char* command){
+    char* response, *message;
+    char com[4], text[240], fileName[24];
+    int n = sscanf(command, "%[^\"]%[^\"] %s", com, text, fileName);
+
+    printf("text: %s \n file name: %s\n", text, fileName);
+
+    /*message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+    sprintf(message, "PST UID GID Tsize text [Fname Fsize data]");
+
+    response = clientSendTCP(message);*/
+
+}
+
+void commandExit(char* message){
+    char* response;
+    if(isLoggedIn){
+        sprintf(message, "OUT %s %s\n", currentUID, currentPass);
+        response = clientSendUDP(message,SIZE_STRING);
+        free(response);
+    }
 }
 
 void processCommands(){
     
-    char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
+    char* buffer=(char*) malloc(sizeof(char)*1000);
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
-    char* arg2=(char*) malloc(sizeof(char)*8);
-    char* arg1=(char*) malloc(sizeof(char)*5);// HARDCODED
+    char* arg2=(char*) malloc(sizeof(char)*300);
+    char* arg1=(char*) malloc(sizeof(char)*300);// HARDCODED
     int n;
 
     //VERIFICAR ARGUMENTOS
@@ -499,80 +568,159 @@ void processCommands(){
         }
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
-            
-            sprintf(buffer, "UNR %s %s\n", arg1, arg2);
-            commandUnregister(buffer);
+
+            if(n==3){
+                sprintf(buffer, "UNR %s %s\n", arg1, arg2);
+                commandUnregister(buffer, arg1);
+            }
+            else
+                printf("Expected 2 arguments!\n"); 
         }
             
         else if(strcmp(com,"login")==0){
             
-            sprintf(buffer, "LOG %s %s\n", arg1, arg2);
-            
-            if(!isLoggedIn)
-                commandLogin(buffer, arg1, arg2);
+            if(n==3){
+                if(!isLoggedIn){
+                    sprintf(buffer, "LOG %s %s\n", arg1, arg2);
+                    commandLogin(buffer, arg1, arg2);
+                }
+                else
+                    printf("Already logged in\n");
+            }
             else
-                printf("Already logged in\n");
+                printf("Expected 2 arguments!\n");
         }
 
         else if(strcmp(com,"logout")==0){
-            
-            sprintf(buffer, "OUT %s %s\n", arg1, arg2);
-            if(isLoggedIn)
-                commandLogout(buffer);
+
+            if(n==1){
+                if(isLoggedIn){
+                    sprintf(buffer, "OUT %s %s\n", currentUID, currentPass);
+                    commandLogout(buffer);
+                }
+                else
+                    printf("No login\n");
+            }
             else
-                printf("No login\n");
+                printf("No arguments expected!\n");
+
+            
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
             
-            commandShowUID(); 
+            if(n==1){
+               commandShowUID(); 
+            }
+            else
+                printf("No arguments expected!\n");
+
+            
         }
 
         else if(strcmp(com,"groups")==0 || strcmp(com,"gl")==0){
-            
-            sprintf(buffer, "GLS\n");
-            commandGroups(buffer);     
+
+            if(n==1){
+                sprintf(buffer, "GLS\n");
+                commandGroups(buffer);
+            }
+            else
+                printf("No arguments expected!\n");
+
+                 
         }
 
         else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){  
             
-            sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
-            commandSubscribe(buffer);
+            if(n==3){
+                sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
+                commandSubscribe(buffer);
+            }
+            else
+                printf("Expected 2 arguments!\n");
         }    
 
         else if(strcmp(com,"unsubscribe")==0 || strcmp(com,"u")==0){  
             
-            sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
-            commandUnsubscribe(buffer);
+            if(n==2){
+                sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
+                commandUnsubscribe(buffer);
+            }
+            else
+                printf("Expected 1 arguments!\n");
         }   
 
-        else if(n == 2 && (strcmp(com,"select")==0 || strcmp(com,"sag")==0)){  //no of arguments have to be verified locally 
+        else if(strcmp(com,"select")==0 || strcmp(com,"sag")==0){  //no of arguments have to be verified locally 
             
-            commandSelect(arg1);
+            if(n==2){
+                commandSelect(arg1);
+            }
+            else
+                printf("Expected 1 arguments!\n");
         }  
 
-        else if(n == 1 && (strcmp(com,"showgid")==0 || strcmp(com,"sg")==0)){   //no of arguments have to be verified locally 
+        else if(strcmp(com,"showgid")==0 || strcmp(com,"sg")==0){   //no of arguments have to be verified locally 
             
-            commandShowGID();
-        }  
-        else if(n == 1 && (strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0)){   //no of arguments have to be verified locally 
+            if(n==1){
+                commandShowGID();
+            }
+            else
+                printf("No arguments expected\n");
+        } 
+
+        else if(strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0){   //no of arguments have to be verified locally 
             
-            sprintf(buffer, "GLM %s\n", currentUID);
-            commandMyGroups(buffer);
+            if(n==1){
+                sprintf(buffer, "GLM %s\n", currentUID);
+                commandMyGroups(buffer);
+            }
+            else
+                printf("No arguments expected\n");
         }
-        else if(n == 1 && (strcmp(com,"ulist")==0 || strcmp(com,"ul")==0)){   //no of arguments have to be verified locally 
+
+        else if(strcmp(com,"ulist")==0 || strcmp(com,"ul")==0){   //no of arguments have to be verified locally 
             
-            if( currentGID != 0){
-                sprintf(buffer, "ULS %02d\n", currentGID);
-                commandUList(buffer);
-            } 
-            else{
+            if(n==1){
+                if( currentGID != 0){
+                    sprintf(buffer, "ULS %02d\n", currentGID);
+                    commandUList(buffer);
+                } 
+                else{
+                    printf("No group selected\n");
+                }
+            }
+            else
+                printf("No arguments expected\n");
+        }
+
+        else if(strcmp(com,"post") == 0){  
+
+            if(!isLoggedIn){
+                printf("Not logged in\n");
+            }
+            else if(currentGID == 0){
                 printf("No group selected\n");
             }
+            else{
+                commandPost(buffer);
+            }
         }
-        else if(strcmp(com,"exit")==0)
-            //fechar TCP
-            exit(0);
+
+        else if(strcmp(com,"exit")==0){
+            
+            if(n==1){
+                commandExit(buffer);
+                free(buffer);
+                free(com);
+                free(arg1);
+                free(arg2);
+                return;
+            }
+            else
+                printf("No arguments expected\n");
+            
+        }
+
         else
             fprintf(stderr, "Invalid command!\n");
         
@@ -592,7 +740,10 @@ int main(int argc, char *argv[]){
     
     processCommands();
     
-    free(DSIP); //meter numa func
+    free(currentPass);
+    free(currentUID);
+    free(DSport);
+    free(DSIP);
 
     return 0;
 }

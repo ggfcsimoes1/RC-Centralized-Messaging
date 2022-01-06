@@ -21,7 +21,7 @@ void getDefaultIP();
 void parseArgs(int numArgs,char *args[]);
 char* clientSend(char* message, int sizeString);
 void commandRegister(char* message);
-void commandUnregister(char* message);
+void commandUnregister(char* message, char* arg1);
 void commandLogin(char* message, char* UID, char* pass);
 void commandLogout(char* message, char* UID, char* pass);
 void commandShowUID();
