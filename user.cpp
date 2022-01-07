@@ -174,7 +174,7 @@ char* clientSendTCP(char* message){
 
     ptr = message;
     toWrite = strlen(message);
-
+    
     while(toWrite > 0){
         n=write(fd, ptr, toWrite);
 
@@ -184,7 +184,7 @@ char* clientSendTCP(char* message){
         toWrite-= n;
         ptr+= n;
     }
-
+    
     response = NULL;
 
     memset(buffer, 0, sizeof(buffer));
@@ -200,11 +200,12 @@ char* clientSendTCP(char* message){
         strcat(response, buffer);
 
         i++;
-
+        printf("n: %ld\n",n);
 		if(n < 10 || buffer[9] == '\n')
-			break;
+			continue;
 
 		memset(buffer, 0, sizeof(buffer));
+       
     }
 
     if(n == -1){
@@ -213,6 +214,7 @@ char* clientSendTCP(char* message){
 
     freeaddrinfo(res);
     close(fd);
+    
     return response;
 }
 
@@ -227,60 +229,46 @@ int verifyText(char text[]){
     }
 }
 
-int verifyFile(char fileName[], char* data){
+char* verifyFile(char fileName[], int* fsize){
     FILE *fp;
-    int nameSize = strlen(fileName), fsize = 0;
-    char buffer[11];
-    
+     
+    int nameSize = strlen(fileName);
+    char* data;
+
     //Verify file name
     for(int i = 0; i < nameSize; i++){
         if(!isalpha(fileName[i]) && !isdigit(fileName[i]) && fileName[i] != '_' && fileName[i] != '-' && fileName[i] != '.'){
             printf("Invalid file name\n");
-            return -1;
+            return NULL;
         }
     }
 
     //read file
     if((fp = fopen(fileName, "r")) != NULL){
-        //ver filesize
         
-        data = NULL;
+        fseek(fp, 0, SEEK_END);
+        *fsize = ftell(fp); 
+        fseek(fp, 0, SEEK_SET); 
 
-        memset(buffer, 0, sizeof(buffer));
-
-        while((n=read(fd,buffer, 10)) > 0){
-
-            data =(char*) realloc(data, sizeof(char) * i * 10);
-
-            if(i == 1){
-                memset(data, 0, sizeof(data));
-            }
-
-            strcat(data, buffer);
-
-            i++;
-
-            if(n < 10 || buffer[9] == '\n')
-                break;
-
-            memset(buffer, 0, sizeof(buffer));
-        }
-
-        if(n == -1){
-            printf("Error reading file\n");
-            return -1;
-        }
+        data = (char*) malloc(*fsize);
         
-        fclose(fp);
-        return fsize;
+        if(fread(data,1,*fsize,fp) != *fsize){ //doesn't distinguish between EOF and read errors
+            printf("Reading error\n");
+            return NULL;
+        }
+        //FILE *fp2;
+        //fp2 = fopen("output.txt", "w"); 
+        //printf("%ld\n", fwrite(data,1,*fsize,fp2));
+        return data;
+
     }
     else if (errno == ENOENT){
-        printf("No file named: %s\n", fileName);
-        return -1;
+        printf("No file named %s\n", fileName);
+        return NULL;
     }
     else{
-        printf("Error openning file\n");
-        return -1;
+        printf("Error opening file\n");
+        return NULL;
     }
 }
 
@@ -545,6 +533,8 @@ void commandUList(char* message){
     char com[4], gname[24], status[4];
     int n, uid;
 
+
+    memset(users, 0, sizeof(users));
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"UList error\n");
         free(response);
@@ -552,13 +542,14 @@ void commandUList(char* message){
     }
 
     n=sscanf(response,"%s %s %s %[^\n]",com, status, gname, users);
-
+    printf("re:%s\n",response);
     if(n < 2){
         printf("Unexpected error\n");
         free(response);
+        free(users);
         return;
     }
-
+    
     if(strcmp(com, "RUL")==0 && strcmp(status, "NOK")== 0){
         printf("Non Existing Group!\n");
     }
@@ -582,7 +573,7 @@ void commandUList(char* message){
         printf("Unexpected error\n");
     }
 
-    free(users);
+        free(users);
     free(response);
 }
 
@@ -591,35 +582,29 @@ void commandPost(char* command){
     char com[4], text[242], fileName[24];
     int tsize, fsize = 0;
     int n = sscanf(command, "%s %s %s", com, text, fileName);
-
-    currentGID = 10;
-    strcpy(currentUID, "12345");
-
+    
     if((tsize = verifyText(text)) == -1){
         printf("Invalid Message\n");
         return;
     }
-    if((fsize = verifyFile(fileName, data)) == -1){
-        printf("Invalid File\n");
+    if((data = verifyFile(fileName, &fsize)) == NULL){
         return;
     }
-
-    printf("text: %s \nfile name: %s\n", text, fileName);
-
+    
     if(fsize == 0){
-        printf("1\n");
+        
         message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
         sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text + 1);
     } else {
-        printf("2\n");
+        
         message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
         sprintf(message, "PST %s %d %d %s %s %d %s\n", currentUID, currentGID, tsize, text + 1, fileName, fsize, data);
     }
 
-    printf("%s", message);
+    
 
-    //response = clientSendTCP(message);
-
+    response = clientSendTCP(message);
+    
     free(message);
 }
 
@@ -797,8 +782,6 @@ void processCommands(){
         }
 
         else if(strcmp(com,"post") == 0){  
-
-            commandPost(buffer);
 
             if(!isLoggedIn){
                 printf("Not logged in\n");

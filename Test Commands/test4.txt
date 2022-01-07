@@ -1,0 +1,4 @@
+login 95588 password
+s 1 test
+select 1
+ul

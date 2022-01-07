@@ -132,7 +132,7 @@ void receiveTCP(int fd){
         if(i == 1){
             memset(message, 0, sizeof(message));
         }
-
+		printf("%d %ld %s\n", i,strlen(message),message);
         strcat(message, buffer);
         
         i++;
@@ -141,13 +141,14 @@ void receiveTCP(int fd){
 			break;
 
 		memset(buffer, 0, sizeof(buffer));
-    }
+		
+    }	
 
 	if(n == -1){
 		exit(1);
 	}
 
-	printf("message:%s\n", message);
+	
 
 	buffer2 = processCommands(message);
 
@@ -778,6 +779,9 @@ char* processCommands(char* command){
 		}
 		else
 			sprintf(buffer, "ERR\n");
+	}
+	else if(strcmp(com, "PST")==0){
+		printf("com: %s\n", command);
 	}
 
     free(com);

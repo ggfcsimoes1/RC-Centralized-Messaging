@@ -1,0 +1,7 @@
+reg 12345 password
+login 12345 password 
+s 01 test
+select 01
+post "hello" batatas.txt
+logout
+unr 12345 password
