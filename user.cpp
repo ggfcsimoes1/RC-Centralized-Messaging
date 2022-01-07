@@ -216,6 +216,74 @@ char* clientSendTCP(char* message){
     return response;
 }
 
+int verifyText(char text[]){
+    int size = strlen(text);
+    if(text[0] == '\"' && text[size-1] == '\"'){
+        text[size-1] = '\0';
+        return size - 2;
+    } 
+    else {
+        return -1;
+    }
+}
+
+int verifyFile(char fileName[], char* data){
+    FILE *fp;
+    int nameSize = strlen(fileName), fsize = 0;
+    char buffer[11];
+    
+    //Verify file name
+    for(int i = 0; i < nameSize; i++){
+        if(!isalpha(fileName[i]) && !isdigit(fileName[i]) && fileName[i] != '_' && fileName[i] != '-' && fileName[i] != '.'){
+            printf("Invalid file name\n");
+            return -1;
+        }
+    }
+
+    //read file
+    if((fp = fopen(fileName, "r")) != NULL){
+        //ver filesize
+        
+        data = NULL;
+
+        memset(buffer, 0, sizeof(buffer));
+
+        while((n=read(fd,buffer, 10)) > 0){
+
+            data =(char*) realloc(data, sizeof(char) * i * 10);
+
+            if(i == 1){
+                memset(data, 0, sizeof(data));
+            }
+
+            strcat(data, buffer);
+
+            i++;
+
+            if(n < 10 || buffer[9] == '\n')
+                break;
+
+            memset(buffer, 0, sizeof(buffer));
+        }
+
+        if(n == -1){
+            printf("Error reading file\n");
+            return -1;
+        }
+        
+        fclose(fp);
+        return fsize;
+    }
+    else if (errno == ENOENT){
+        printf("No file named: %s\n", fileName);
+        return -1;
+    }
+    else{
+        printf("Error openning file\n");
+        return -1;
+    }
+}
+
 void commandRegister(char* message){
     char* response = clientSendUDP(message,SIZE_STRING);
 
@@ -519,17 +587,40 @@ void commandUList(char* message){
 }
 
 void commandPost(char* command){
-    char* response, *message;
-    char com[4], text[240], fileName[24];
-    int n = sscanf(command, "%[^\"]%[^\"] %s", com, text, fileName);
+    char* response, *message, *data;
+    char com[4], text[242], fileName[24];
+    int tsize, fsize = 0;
+    int n = sscanf(command, "%s %s %s", com, text, fileName);
 
-    printf("text: %s \n file name: %s\n", text, fileName);
+    currentGID = 10;
+    strcpy(currentUID, "12345");
 
-    /*message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
-    sprintf(message, "PST UID GID Tsize text [Fname Fsize data]");
+    if((tsize = verifyText(text)) == -1){
+        printf("Invalid Message\n");
+        return;
+    }
+    if((fsize = verifyFile(fileName, data)) == -1){
+        printf("Invalid File\n");
+        return;
+    }
 
-    response = clientSendTCP(message);*/
+    printf("text: %s \nfile name: %s\n", text, fileName);
 
+    if(fsize == 0){
+        printf("1\n");
+        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+        sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text + 1);
+    } else {
+        printf("2\n");
+        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+        sprintf(message, "PST %s %d %d %s %s %d %s\n", currentUID, currentGID, tsize, text + 1, fileName, fsize, data);
+    }
+
+    printf("%s", message);
+
+    //response = clientSendTCP(message);
+
+    free(message);
 }
 
 void commandExit(char* message){
@@ -553,12 +644,13 @@ void processCommands(){
 
     while(fgets(buffer,SIZE_STRING,stdin)){
         n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
-        strcpy(buffer, "");
         
         if(n<1)
             continue;
 
         if(strcmp(com,"reg")==0){
+            strcpy(buffer, "");
+
             if(n==3){
                 sprintf(buffer, "REG %s %s\n", arg1, arg2);
                 commandRegister(buffer);
@@ -568,6 +660,7 @@ void processCommands(){
         }
             
         else if(strcmp(com,"unregister")==0 || strcmp(com,"unr")==0){
+            strcpy(buffer, "");
 
             if(n==3){
                 sprintf(buffer, "UNR %s %s\n", arg1, arg2);
@@ -578,7 +671,8 @@ void processCommands(){
         }
             
         else if(strcmp(com,"login")==0){
-            
+            strcpy(buffer, "");
+
             if(n==3){
                 if(!isLoggedIn){
                     sprintf(buffer, "LOG %s %s\n", arg1, arg2);
@@ -592,6 +686,7 @@ void processCommands(){
         }
 
         else if(strcmp(com,"logout")==0){
+            strcpy(buffer, "");
 
             if(n==1){
                 if(isLoggedIn){
@@ -608,7 +703,8 @@ void processCommands(){
         }
 
         else if(strcmp(com,"showuid")==0 || strcmp(com,"su")==0){
-            
+            strcpy(buffer, "");
+
             if(n==1){
                commandShowUID(); 
             }
@@ -619,6 +715,7 @@ void processCommands(){
         }
 
         else if(strcmp(com,"groups")==0 || strcmp(com,"gl")==0){
+            strcpy(buffer, "");
 
             if(n==1){
                 sprintf(buffer, "GLS\n");
@@ -631,7 +728,8 @@ void processCommands(){
         }
 
         else if(strcmp(com,"subscribe")==0 || strcmp(com,"s")==0){  
-            
+            strcpy(buffer, "");
+
             if(n==3){
                 sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
                 commandSubscribe(buffer);
@@ -641,7 +739,8 @@ void processCommands(){
         }    
 
         else if(strcmp(com,"unsubscribe")==0 || strcmp(com,"u")==0){  
-            
+            strcpy(buffer, "");
+
             if(n==2){
                 sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
                 commandUnsubscribe(buffer);
@@ -651,7 +750,8 @@ void processCommands(){
         }   
 
         else if(strcmp(com,"select")==0 || strcmp(com,"sag")==0){  //no of arguments have to be verified locally 
-            
+            strcpy(buffer, "");
+
             if(n==2){
                 commandSelect(arg1);
             }
@@ -660,7 +760,8 @@ void processCommands(){
         }  
 
         else if(strcmp(com,"showgid")==0 || strcmp(com,"sg")==0){   //no of arguments have to be verified locally 
-            
+            strcpy(buffer, "");
+
             if(n==1){
                 commandShowGID();
             }
@@ -669,7 +770,8 @@ void processCommands(){
         } 
 
         else if(strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0){   //no of arguments have to be verified locally 
-            
+            strcpy(buffer, "");
+
             if(n==1){
                 sprintf(buffer, "GLM %s\n", currentUID);
                 commandMyGroups(buffer);
@@ -679,7 +781,8 @@ void processCommands(){
         }
 
         else if(strcmp(com,"ulist")==0 || strcmp(com,"ul")==0){   //no of arguments have to be verified locally 
-            
+            strcpy(buffer, "");
+
             if(n==1){
                 if( currentGID != 0){
                     sprintf(buffer, "ULS %02d\n", currentGID);
@@ -695,6 +798,8 @@ void processCommands(){
 
         else if(strcmp(com,"post") == 0){  
 
+            commandPost(buffer);
+
             if(!isLoggedIn){
                 printf("Not logged in\n");
             }
@@ -704,10 +809,12 @@ void processCommands(){
             else{
                 commandPost(buffer);
             }
+
+            strcpy(buffer, "");
         }
 
         else if(strcmp(com,"exit")==0){
-            
+
             if(n==1){
                 commandExit(buffer);
                 free(buffer);
