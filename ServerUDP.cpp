@@ -728,6 +728,16 @@ void comUList(char* buffer,int gid){
 		sprintf(buffer, "ERR\n");
 }
 
+void comPost(char* command){
+	char com[3], uid[5],gid[2];
+	int tsize;
+	char* text, *buffer;
+	n=sscanf(command, "%s %s %s %d",com,uid,gid,tsize);
+	
+	text= (char*) malloc(sizeof(char)*tsize);
+	sprintf
+}
+
 char* processCommands(char* command){
 	char* groupNames;
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
@@ -840,10 +850,24 @@ char* processCommands(char* command){
 			sprintf(buffer, "ERR\n");
 	}
 	else if(strcmp(com, "PST")==0){
-		
-		
+		char oi[1000];
+		char oi1[1000];
+		char oi2[1000];
+		char oi3[1000];
+		char oi4[1000];
+		char oi5[1000];
+		char oi6[100000];
+		int a,b;
+		n=sscanf(command, "%s %s %s %d %s %s %d %[^\t]\n",com, oi,oi2,&a,oi3,oi4,&b,oi6);
+
+		comPost(command);
+		FILE *fp2;
+        fp2 = fopen("output.jpg", "wb"); 
+		fwrite(oi6,sizeof(char),b,fp2);
+        
 		printf("com: %s\n", command);
-		return command;
+		fclose(fp2);
+		
 	}
 
     free(com);

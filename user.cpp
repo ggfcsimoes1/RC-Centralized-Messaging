@@ -310,9 +310,7 @@ char* verifyFile(char fileName[], int* fsize){
             printf("Reading error\n");
             return NULL;
         }
-        //FILE *fp2;
-        //fp2 = fopen("output.txt", "w"); 
-        //printf("%ld\n", fwrite(data,1,*fsize,fp2));
+        
         return data;
 
     }
