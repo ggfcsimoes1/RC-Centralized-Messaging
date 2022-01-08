@@ -149,6 +149,74 @@ char* clientSendUDP(char* message, int sizeString){
     return response;
 }
 
+/*char* clientSendTCP(char* message){
+    int fd, errcode;
+    ssize_t n, toWrite;
+    socklen_t addrlen;
+    struct addrinfo hints, *res;
+    struct sockaddr_in addr;
+    char c[1];
+    char *response, *ptr;
+    int i = 0;
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if(fd==-1) exit(1);
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    errcode=getaddrinfo(DSIP, DSport, &hints, &res);
+    if(errcode!=0) exit(1);
+
+    n = connect(fd, res-> ai_addr, res-> ai_addrlen);
+    if(n==-1) exit(1);
+
+    ptr = message;
+    toWrite = strlen(message);
+    
+    while(toWrite > 0){
+        n=write(fd, ptr, toWrite);
+
+        if(n<=0)
+            exit(1);
+
+        toWrite-= n;
+        ptr+= n;
+    }
+    
+    response = NULL;
+
+    while(1){
+        if((n=read(fd, c, 1)) == -1){
+            exit(1);
+        }
+        else if(n == 0){
+            continue;
+        }
+
+        i++;
+
+        response =(char*) realloc(response, sizeof(char) * (i + 1));
+
+        if(i == 1){
+            memset(response, 0, sizeof(response));
+        }
+        
+        strcat(response, c);
+
+
+        if(strcmp(c, "\n") == 0){
+            break;
+        }
+    }
+
+    freeaddrinfo(res);
+    close(fd);
+    
+    return response;
+}*/
+
 char* clientSendTCP(char* message){
     int fd, errcode;
     ssize_t n, toWrite;
@@ -191,7 +259,7 @@ char* clientSendTCP(char* message){
 
     while((n=read(fd,buffer, 10)) > 0){
 
-        response =(char*) realloc(response, sizeof(char) * i * 10);
+        response =(char*) realloc(response, sizeof(char) * ((i * 10) + 1));
 
         if(i == 1){
             memset(response, 0, sizeof(response));
@@ -200,11 +268,8 @@ char* clientSendTCP(char* message){
         strcat(response, buffer);
 
         i++;
-        printf("n: %ld\n",n);
-		if(n < 10 || buffer[9] == '\n')
-			continue;
 
-		memset(buffer, 0, sizeof(buffer));
+        memset(buffer, 0, sizeof(buffer));
        
     }
 
@@ -216,17 +281,6 @@ char* clientSendTCP(char* message){
     close(fd);
     
     return response;
-}
-
-int verifyText(char text[]){
-    int size = strlen(text);
-    if(text[0] == '\"' && text[size-1] == '\"'){
-        text[size-1] = '\0';
-        return size - 2;
-    } 
-    else {
-        return -1;
-    }
 }
 
 char* verifyFile(char fileName[], int* fsize){
@@ -346,7 +400,9 @@ void commandLogout(char* message){
     }
 
     else if(strcmp("ROU OK\n",response)==0){  
-        printf("Accepted Logout!\n"); 
+        printf("Accepted Logout!\n");
+        strcpy(currentUID, "");
+        strcpy(currentPass, ""); 
         isLoggedIn = false;
     }
 
@@ -483,11 +539,6 @@ void commandMyGroups(char* message){
     char com[4], gname[24];
     int ng, n, gid, mid;
 
-    if(!isLoggedIn){
-        printf("No login\n");
-        return;
-    }
-
     response = clientSendUDP(message,10000);
         
     if(strcmp("ERR\n",response)==0){
@@ -581,29 +632,39 @@ void commandPost(char* command){
     char* response, *message, *data;
     char com[4], text[242], fileName[24];
     int tsize, fsize = 0;
-    int n = sscanf(command, "%s %s %s", com, text, fileName);
-    
-    if((tsize = verifyText(text)) == -1){
-        printf("Invalid Message\n");
+    int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
+
+    strcpy(currentUID, "12345");
+    currentGID = 10;
+
+    //printf("n: %d\n", n);
+    //printf("text: %s\n", text);
+    // isto aceita post "hello , corrigir
+
+    if(n < 2){
+        printf("Expected post \"text\" or post \"text\" file!\n");
         return;
     }
-    if((data = verifyFile(fileName, &fsize)) == NULL){
-        return;
-    }
     
-    if(fsize == 0){
-        
-        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text + 1);
-    } else {
-        
-        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s %s %d %s\n", currentUID, currentGID, tsize, text + 1, fileName, fsize, data);
+    if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){
+        return;
     }
 
-    
+    tsize = strlen(text);
+
+    if(fsize == 0){
+        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+        sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text);
+    } else {
+        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+        sprintf(message, "PST %s %d %d %s %s %d %s\n", currentUID, currentGID, tsize, text, fileName, fsize, data);
+    }
+
+    //printf(" msg: %s\n", message);
 
     response = clientSendTCP(message);
+
+    //printf("Res: %s\n", response);
     
     free(message);
 }
@@ -716,8 +777,13 @@ void processCommands(){
             strcpy(buffer, "");
 
             if(n==3){
-                sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
-                commandSubscribe(buffer);
+                if(isLoggedIn){
+                    sprintf(buffer, "GSR %s %s %s\n", currentUID, arg1, arg2);
+                    commandSubscribe(buffer);
+                }
+                else{
+                    printf("No login\n");
+                }
             }
             else
                 printf("Expected 2 arguments!\n");
@@ -727,14 +793,19 @@ void processCommands(){
             strcpy(buffer, "");
 
             if(n==2){
-                sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
-                commandUnsubscribe(buffer);
+                if(isLoggedIn){
+                    sprintf(buffer, "GUR %s %s\n", currentUID, arg1);
+                    commandUnsubscribe(buffer);
+                }
+                else{
+                    printf("No login\n");
+                } 
             }
             else
                 printf("Expected 1 arguments!\n");
         }   
 
-        else if(strcmp(com,"select")==0 || strcmp(com,"sag")==0){  //no of arguments have to be verified locally 
+        else if(strcmp(com,"select")==0 || strcmp(com,"sag")==0){  
             strcpy(buffer, "");
 
             if(n==2){
@@ -744,7 +815,7 @@ void processCommands(){
                 printf("Expected 1 arguments!\n");
         }  
 
-        else if(strcmp(com,"showgid")==0 || strcmp(com,"sg")==0){   //no of arguments have to be verified locally 
+        else if(strcmp(com,"showgid")==0 || strcmp(com,"sg")==0){   
             strcpy(buffer, "");
 
             if(n==1){
@@ -754,18 +825,23 @@ void processCommands(){
                 printf("No arguments expected\n");
         } 
 
-        else if(strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0){   //no of arguments have to be verified locally 
+        else if(strcmp(com,"my_groups")==0 || strcmp(com,"mgl")==0){   
             strcpy(buffer, "");
 
             if(n==1){
-                sprintf(buffer, "GLM %s\n", currentUID);
-                commandMyGroups(buffer);
+                if(isLoggedIn){
+                    sprintf(buffer, "GLM %s\n", currentUID);
+                    commandMyGroups(buffer);
+                }
+                else{
+                    printf("No login\n");
+                } 
             }
             else
                 printf("No arguments expected\n");
         }
 
-        else if(strcmp(com,"ulist")==0 || strcmp(com,"ul")==0){   //no of arguments have to be verified locally 
+        else if(strcmp(com,"ulist")==0 || strcmp(com,"ul")==0){   
             strcpy(buffer, "");
 
             if(n==1){
@@ -782,6 +858,8 @@ void processCommands(){
         }
 
         else if(strcmp(com,"post") == 0){  
+
+            commandPost(buffer);
 
             if(!isLoggedIn){
                 printf("Not logged in\n");

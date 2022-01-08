@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include "ServerUDP.hpp"
 
 
@@ -120,37 +121,94 @@ void receiveTCP(int fd){
     ssize_t n, toWrite;
     struct addrinfo hints, *res;
     char buffer[11];
-	char * buffer2, *message, *ptr;
+    char * buffer2, *message, *ptr;
 
-	message = NULL;
+    message = NULL;
     memset(buffer, 0, sizeof(buffer));
 
-    while((n=read(fd,buffer, 10)) != 0){
+    while(1){
 
-        message =(char*) realloc(message, sizeof(char) * i * 10);
+		n=read(fd,buffer, 10);
+
+		if(n == -1 && errno == EWOULDBLOCK){
+        	break;
+    	}
+		else if(n == -1){
+			exit(1);
+		}
+
+        message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
 
         if(i == 1){
             memset(message, 0, sizeof(message));
         }
-		printf("%d %ld %s\n", i,strlen(message),message);
+
         strcat(message, buffer);
         
         i++;
 
-		if(n < 10 || buffer[9] == '\n')
-			break;
+        memset(buffer, 0, sizeof(buffer));
+        
+    }    
 
-		memset(buffer, 0, sizeof(buffer));
-		
-    }	
+	printf("-------message: %s\n", message);
 
-	if(n == -1){
-		exit(1);
-	}
+    
 
-	
+    buffer2 = processCommands(message);
+
+    ptr = buffer2;
+    toWrite = strlen(buffer2);
+
+    while(toWrite > 0){
+        n=write(fd, ptr, toWrite);
+
+        if(n<=0)
+            exit(1);
+
+        toWrite-= n;
+        ptr+= n;
+    }
+
+    free(buffer2);
+    free(message);
+}
+
+/*void receiveTCP(int fd){
+    int errcode, i = 0;
+    ssize_t n, toWrite;
+    struct addrinfo hints, *res;
+    char c[1];
+	char * buffer2, *message, *ptr;
+
+	message = NULL;
+
+    while(1){
+        if((n=read(fd, c, 1)) == -1){
+            exit(1);
+        }
+        else if(n == 0){
+            continue;
+        }
+
+        i++;
+
+        message =(char*) realloc(message, sizeof(char) * (i + 1));
+
+        if(i == 1){
+            memset(message, 0, sizeof(message));
+        }
+        
+        strcat(message, c);
+
+        if(strcmp(c, "\n") == 0){
+            break;
+        }
+    }
 
 	buffer2 = processCommands(message);
+
+	//printf("message: %s\n", buffer2);
 
 	ptr = buffer2;
     toWrite = strlen(buffer2);
@@ -167,7 +225,7 @@ void receiveTCP(int fd){
 
 	free(buffer2);
 	free(message);
-}
+}*/
 
 void getNumberOfGroups(){
 	DIR *d;
@@ -613,10 +671,9 @@ void comMyGroups(char* buffer,int uid){
 		}
 		
 		if(numGroups==0)
-			sprintf(buffer, "RGM %d",numGroups );
+			sprintf(buffer, "RGM %d\n",numGroups );
 		else
-			sprintf(buffer, "RGM %d%s", numGroups,aux);
-		printf("bufferTOP %s\n",buffer);
+			sprintf(buffer, "RGM %d%s\n", numGroups,aux);
 
 		closedir(d);
 		
@@ -660,6 +717,8 @@ void comUList(char* buffer,int gid){
 			sscanf(dir->d_name, "%[^.]", user);
 			sprintf(buffer, "%s %s", buffer, user);
 		}
+
+		sprintf(buffer, "%s\n", buffer);
 
 		closedir(d);
 	}
@@ -781,7 +840,10 @@ char* processCommands(char* command){
 			sprintf(buffer, "ERR\n");
 	}
 	else if(strcmp(com, "PST")==0){
+		
+		
 		printf("com: %s\n", command);
+		return command;
 	}
 
     free(com);
@@ -843,6 +905,9 @@ int main(int argc, char *argv[]){
 				exit(1);
 			else if(pid==0){
 				close(fdTCP);
+
+				int flags = fcntl(newfd, F_GETFL);
+				fcntl(newfd, F_SETFL, flags | O_NONBLOCK);
 
 				receiveTCP(newfd);
 
