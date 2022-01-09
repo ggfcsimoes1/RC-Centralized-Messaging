@@ -217,15 +217,28 @@ char* clientSendUDP(char* message, int sizeString){
     return response;
 }*/
 
-char* clientSendTCP(char* message, long msize){
+void fileSendTCP(char* filename, int fd){
+    FILE* fp = fopen(filename, "rb");
+    char buffer[11];
+
+    bzero(buffer, sizeof(buffer)); //just in case
+
+    while(!feof(fp)) {
+        fread(buffer, 1, sizeof(buffer), fp);
+        write(fd, buffer, sizeof(buffer));
+        bzero(buffer, sizeof(buffer));
+    }
+}
+
+char* clientSendTCP(char* message, char* fileName){
     int fd, errcode;
     ssize_t n = 1;
     socklen_t addrlen;
     struct addrinfo hints, *res;
     struct sockaddr_in addr;
-    //char buffer[11];
     char *response, *ptr;
     int i = 1, nread = 0;
+    int messageSize= strlen(message);
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd==-1) exit(1);
@@ -242,29 +255,23 @@ char* clientSendTCP(char* message, long msize){
 
     ptr = message;
     
-    while(msize > 0){
-        n=write(fd, ptr, msize);
+
+    while(messageSize > 0){
+        n=write(fd, ptr, messageSize);
 
         printf("%ld\n", n);
         if(n<=0)
             exit(1);
 
-        msize-= n;
+        messageSize-= n;
         ptr+= n;
     }
 
-    /*FILE* fp = fopen("hello.jpg", "rb");
-
-    while(!feof(fp)) {
-        fread(buffer, 1, sizeof(buffer), fp);
-        write(fd, buffer, sizeof(buffer));
-        bzero(buffer, sizeof(buffer));
-    }*/
-
+    
+    if(fileName != NULL)
+        fileSendTCP(fileName, fd);
     
     response = NULL;
-
-    //memset(buffer, 0, sizeof(buffer));
 
     while(n > 0){
 
@@ -592,7 +599,7 @@ void commandMyGroups(char* message){
 }
 
 void commandUList(char* message){
-    char* response = clientSendTCP(message, strlen(message));
+    char* response = clientSendTCP(message, NULL);
     char* users = (char *) malloc(sizeof(char) * strlen(response));
     char com[4], gname[24], status[4];
     int n, uid;
@@ -671,22 +678,22 @@ void commandPost(char* command){
         sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text);
     } else {
         message = (char* )malloc(sizeof(char) * 100000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s %s %ld", currentUID, currentGID, tsize, text, fileName, fsize);
+        sprintf(message, "PST %s %d %d %s %s %ld ", currentUID, currentGID, tsize, text, fileName, fsize);
         hSize = strlen(message);
     }
 
 
 
-    FILE* fp2;
+    /*FILE* fp2;
 
     fp2 = fopen("output.jpg", "wb"); 
     fwrite(message,1,fsize + hSize,fp2);
 
-    fclose(fp2);
+    fclose(fp2);*/
 
     //printf(" msg: %s\n", message);
 
-    response = clientSendTCP(message, fsize + hSize);
+    response = clientSendTCP(message, fileName);
 
     //printf("Res: %s\n", response);
     

@@ -154,7 +154,7 @@ void receiveTCP(int fd){
     }
 
 	
-	fwrite(message,1,6352,fp2);
+	fwrite(message,1,2472464,fp2);
  
 	fclose(fp2);
 
@@ -162,7 +162,7 @@ void receiveTCP(int fd){
 
     
 
-    //buffer2 = processCommands(message);
+    buffer2 = processCommands(message);
 
     ptr = buffer2;
     toWrite = strlen(buffer2);
@@ -180,59 +180,6 @@ void receiveTCP(int fd){
     free(buffer2);
     free(message);
 }
-
-/*void receiveTCP(int fd){
-    int errcode, i = 0;
-    ssize_t n, toWrite;
-    struct addrinfo hints, *res;
-    char c[1];
-	char * buffer2, *message, *ptr;
-
-	message = NULL;
-
-    while(1){
-        if((n=read(fd, c, 1)) == -1){
-            exit(1);
-        }
-        else if(n == 0){
-            continue;
-        }
-
-        i++;
-
-        message =(char*) realloc(message, sizeof(char) * (i + 1));
-
-        if(i == 1){
-            memset(message, 0, sizeof(message));
-        }
-        
-        strcat(message, c);
-
-        if(strcmp(c, "\n") == 0){
-            break;
-        }
-    }
-
-	buffer2 = processCommands(message);
-
-	//printf("message: %s\n", buffer2);
-
-	ptr = buffer2;
-    toWrite = strlen(buffer2);
-
-    while(toWrite > 0){
-        n=write(fd, ptr, toWrite);
-
-        if(n<=0)
-            exit(1);
-
-        toWrite-= n;
-        ptr+= n;
-    }
-
-	free(buffer2);
-	free(message);
-}*/
 
 void getNumberOfGroups(){
 	DIR *d;
@@ -770,7 +717,7 @@ void comPost(char* buffer, char* command){
 		f = atoi(fsize);
 		command += strlen(fileName) + strlen(fsize) + 2;
 
-        fp2 = fopen("output.jpg", "wb"); 
+        fp2 = fopen("output.png", "wb"); 
 		fwrite(command,1,f,fp2);
 
 		fclose(fp2);
