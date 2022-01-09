@@ -123,8 +123,12 @@ void receiveTCP(int fd){
     char buffer[11];
     char * buffer2, *message, *ptr;
 
+	FILE* fp2;
+
     message = NULL;
     memset(buffer, 0, sizeof(buffer));
+
+	fp2 = fopen("gustavo.jpg", "wb");
 
     while(1){
 
@@ -136,6 +140,9 @@ void receiveTCP(int fd){
 		else if(n == -1){
 			exit(1);
 		}
+
+		printf("%d\n", i);
+		fwrite(buffer,1,n,fp2);
 
         message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
 
@@ -149,13 +156,15 @@ void receiveTCP(int fd){
 
         memset(buffer, 0, sizeof(buffer));
         
-    }    
+    }
+ 
+	fclose(fp2);
 
 	printf("-------message: %s\n", message);
 
     
 
-    buffer2 = processCommands(message);
+    //buffer2 = processCommands(message);
 
     ptr = buffer2;
     toWrite = strlen(buffer2);
@@ -728,14 +737,49 @@ void comUList(char* buffer,int gid){
 		sprintf(buffer, "ERR\n");
 }
 
-void comPost(char* command){
-	char com[3], uid[5],gid[2];
-	int tsize;
-	char* text, *buffer;
-	n=sscanf(command, "%s %s %s %d",com,uid,gid,tsize);
+void comPost(char* buffer, char* command){
+	char aux[3], uid[5], gid[2], fileName[24], tsize[3], fsize[10];
+	int n;
+	long f;
+	char *fileDir, *text;
+	FILE *fp2;
+
+	memset(tsize, 0, sizeof(tsize));
+	memset(fsize, 0, sizeof(fsize));
+
+	n=sscanf(command, "%s %s %s %s", aux, uid, gid, tsize);
+
+	if(n < 4){
+		sprintf(buffer, "ERR\n");// --------------Verificar depois
+		return;
+	}
 	
-	text= (char*) malloc(sizeof(char)*tsize);
-	sprintf
+	n = atoi(tsize);
+
+	text= (char*) malloc(sizeof(char)*(n + 1));
+
+	memset(text, 0, sizeof(text));
+	memset(fileName, 0, sizeof(fileName));
+
+	command += (14 + strlen(tsize));
+	strncpy(text, command, n);
+
+	command += (n + 1);
+
+	n=sscanf(command, "%s %s",fileName, fsize);{}
+
+	if(strcmp(fileName, "") != 0){
+		f = atoi(fsize);
+		command += strlen(fileName) + strlen(fsize) + 2;
+
+        fp2 = fopen("output.jpg", "wb"); 
+		fwrite(command,1,f,fp2);
+
+		fclose(fp2);
+	}
+
+	printf("text: %s\nfileName: %s\n", text, fileName);
+
 }
 
 char* processCommands(char* command){
@@ -850,23 +894,15 @@ char* processCommands(char* command){
 			sprintf(buffer, "ERR\n");
 	}
 	else if(strcmp(com, "PST")==0){
-		char oi[1000];
-		char oi1[1000];
-		char oi2[1000];
-		char oi3[1000];
-		char oi4[1000];
-		char oi5[1000];
-		char oi6[100000];
-		int a,b;
-		n=sscanf(command, "%s %s %s %d %s %s %d %[^\t]\n",com, oi,oi2,&a,oi3,oi4,&b,oi6);
 
-		comPost(command);
-		FILE *fp2;
+		comPost(buffer, command);
+
+		/*FILE *fp2;
         fp2 = fopen("output.jpg", "wb"); 
 		fwrite(oi6,sizeof(char),b,fp2);
         
 		printf("com: %s\n", command);
-		fclose(fp2);
+		fclose(fp2);*/
 		
 	}
 

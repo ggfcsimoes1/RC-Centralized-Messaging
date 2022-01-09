@@ -243,15 +243,25 @@ char* clientSendTCP(char* message){
     ptr = message;
     toWrite = strlen(message);
     
-    while(toWrite > 0){
+    /*while(toWrite > 0){
         n=write(fd, ptr, toWrite);
 
+        printf("%ld\n", n);
         if(n<=0)
             exit(1);
 
         toWrite-= n;
         ptr+= n;
+    }*/
+
+    FILE* fp = fopen("hello.jpg", "rb");
+
+    while(!feof(fp)) {
+        fread(buffer, 1, sizeof(buffer), fp);
+        write(fd, buffer, sizeof(buffer));
+        bzero(buffer, sizeof(buffer));
     }
+
     
     response = NULL;
 
@@ -283,7 +293,7 @@ char* clientSendTCP(char* message){
     return response;
 }
 
-char* verifyFile(char fileName[], int* fsize){
+char* verifyFile(char fileName[], long* fsize){
     FILE *fp;
      
     int nameSize = strlen(fileName);
@@ -310,6 +320,13 @@ char* verifyFile(char fileName[], int* fsize){
             printf("Reading error\n");
             return NULL;
         }
+
+        /*FILE* fp2;
+
+        fp2 = fopen("output.jpg", "wb"); 
+		fwrite(data,1,*fsize,fp2);
+
+		fclose(fp2);*/
         
         return data;
 
@@ -629,7 +646,8 @@ void commandUList(char* message){
 void commandPost(char* command){
     char* response, *message, *data;
     char com[4], text[242], fileName[24];
-    int tsize, fsize = 0;
+    int tsize;
+    long fsize = 0;
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
     strcpy(currentUID, "12345");
@@ -654,13 +672,22 @@ void commandPost(char* command){
         message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
         sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text);
     } else {
-        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s %s %d %s\n", currentUID, currentGID, tsize, text, fileName, fsize, data);
+        message = (char* )malloc(sizeof(char) * 100000);// CORRIGIR TAMANHO
+        sprintf(message, "PST %s %d %d %s %s %ld", currentUID, currentGID, tsize, text, fileName, fsize);
     }
+
+
+    printf("strlen: %ld\n", strlen(data));
+    /*FILE* fp2;
+
+    fp2 = fopen("output.jpg", "wb"); 
+    fwrite(data,1,fsize,fp2);
+
+    fclose(fp2);*/
 
     //printf(" msg: %s\n", message);
 
-    response = clientSendTCP(message);
+    response = clientSendTCP(data);
 
     //printf("Res: %s\n", response);
     
