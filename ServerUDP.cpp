@@ -119,20 +119,27 @@ int receiveUDP(int fd){
 void receiveTCP(int fd){
     int errcode, i = 1;
     ssize_t n, toWrite;
+	int nread = 0;
     struct addrinfo hints, *res;
-    char buffer[11];
+    //char buffer[11];
     char * buffer2, *message, *ptr;
 
 	FILE* fp2;
 
     message = NULL;
-    memset(buffer, 0, sizeof(buffer));
+    //memset(buffer, 0, sizeof(buffer));
 
 	fp2 = fopen("gustavo.jpg", "wb");
 
     while(1){
 
-		n=read(fd,buffer, 10);
+		message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
+
+        if(i == 1){
+            memset(message, 0, sizeof(message));
+        }
+
+		n=read(fd, message + nread , 10);
 
 		if(n == -1 && errno == EWOULDBLOCK){
         	break;
@@ -141,22 +148,13 @@ void receiveTCP(int fd){
 			exit(1);
 		}
 
-		printf("%d\n", i);
-		fwrite(buffer,1,n,fp2);
-
-        message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
-
-        if(i == 1){
-            memset(message, 0, sizeof(message));
-        }
-
-        strcat(message, buffer);
-        
+		//printf("%d\n", i);
+        nread+= n;
         i++;
-
-        memset(buffer, 0, sizeof(buffer));
-        
     }
+
+	
+	fwrite(message,1,6352,fp2);
  
 	fclose(fp2);
 

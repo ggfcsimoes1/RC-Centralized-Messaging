@@ -217,15 +217,15 @@ char* clientSendUDP(char* message, int sizeString){
     return response;
 }*/
 
-char* clientSendTCP(char* message){
+char* clientSendTCP(char* message, long msize){
     int fd, errcode;
-    ssize_t n, toWrite;
+    ssize_t n = 1;
     socklen_t addrlen;
     struct addrinfo hints, *res;
     struct sockaddr_in addr;
-    char buffer[11];
+    //char buffer[11];
     char *response, *ptr;
-    int i = 1;
+    int i = 1, nread = 0;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd==-1) exit(1);
@@ -241,33 +241,32 @@ char* clientSendTCP(char* message){
     if(n==-1) exit(1);
 
     ptr = message;
-    toWrite = strlen(message);
     
-    /*while(toWrite > 0){
-        n=write(fd, ptr, toWrite);
+    while(msize > 0){
+        n=write(fd, ptr, msize);
 
         printf("%ld\n", n);
         if(n<=0)
             exit(1);
 
-        toWrite-= n;
+        msize-= n;
         ptr+= n;
-    }*/
+    }
 
-    FILE* fp = fopen("hello.jpg", "rb");
+    /*FILE* fp = fopen("hello.jpg", "rb");
 
     while(!feof(fp)) {
         fread(buffer, 1, sizeof(buffer), fp);
         write(fd, buffer, sizeof(buffer));
         bzero(buffer, sizeof(buffer));
-    }
+    }*/
 
     
     response = NULL;
 
-    memset(buffer, 0, sizeof(buffer));
+    //memset(buffer, 0, sizeof(buffer));
 
-    while((n=read(fd,buffer, 10)) > 0){
+    while(n > 0){
 
         response =(char*) realloc(response, sizeof(char) * ((i * 10) + 1));
 
@@ -275,11 +274,10 @@ char* clientSendTCP(char* message){
             memset(response, 0, sizeof(response));
         }
 
-        strcat(response, buffer);
+        n=read(fd, response + nread, 10);
 
+        nread += n;
         i++;
-
-        memset(buffer, 0, sizeof(buffer));
        
     }
 
@@ -594,7 +592,7 @@ void commandMyGroups(char* message){
 }
 
 void commandUList(char* message){
-    char* response = clientSendTCP(message);
+    char* response = clientSendTCP(message, strlen(message));
     char* users = (char *) malloc(sizeof(char) * strlen(response));
     char com[4], gname[24], status[4];
     int n, uid;
@@ -608,7 +606,7 @@ void commandUList(char* message){
     }
 
     n=sscanf(response,"%s %s %s %[^\n]",com, status, gname, users);
-    printf("re:%s\n",response);
+
     if(n < 2){
         printf("Unexpected error\n");
         free(response);
@@ -647,7 +645,7 @@ void commandPost(char* command){
     char* response, *message, *data;
     char com[4], text[242], fileName[24];
     int tsize;
-    long fsize = 0;
+    long fsize = 0, hSize;
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
     strcpy(currentUID, "12345");
@@ -674,20 +672,21 @@ void commandPost(char* command){
     } else {
         message = (char* )malloc(sizeof(char) * 100000);// CORRIGIR TAMANHO
         sprintf(message, "PST %s %d %d %s %s %ld", currentUID, currentGID, tsize, text, fileName, fsize);
+        hSize = strlen(message);
     }
 
 
-    printf("strlen: %ld\n", strlen(data));
-    /*FILE* fp2;
+
+    FILE* fp2;
 
     fp2 = fopen("output.jpg", "wb"); 
-    fwrite(data,1,fsize,fp2);
+    fwrite(message,1,fsize + hSize,fp2);
 
-    fclose(fp2);*/
+    fclose(fp2);
 
     //printf(" msg: %s\n", message);
 
-    response = clientSendTCP(data);
+    response = clientSendTCP(message, fsize + hSize);
 
     //printf("Res: %s\n", response);
     
