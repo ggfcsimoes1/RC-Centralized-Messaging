@@ -119,20 +119,18 @@ int receiveUDP(int fd){
 void receiveTCP(int fd){
     int errcode, i = 1;
     ssize_t n, toWrite;
-	int nread = 0;
+	long nread = 0;
     struct addrinfo hints, *res;
     //char buffer[11];
     char * buffer2, *message, *ptr;
 
-	FILE* fp2;
+	//FILE* fp2;
 
     message = NULL;
-    //memset(buffer, 0, sizeof(buffer));
 
-	fp2 = fopen("gustavo.jpg", "wb");
+	//fp2 = fopen("gustavo.jpg", "wb");
 
     while(1){
-
 		message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
 
         if(i == 1){
@@ -141,6 +139,8 @@ void receiveTCP(int fd){
 
 		n=read(fd, message + nread , 10);
 
+		printf("%ld\n", nread);
+
 		if(n == -1 && errno == EWOULDBLOCK){
         	break;
     	}
@@ -148,15 +148,15 @@ void receiveTCP(int fd){
 			exit(1);
 		}
 
-		//printf("%d\n", i);
         nread+= n;
         i++;
     }
 
+	//printf("%ld\n", nread);
 	
-	fwrite(message,1,2472464,fp2);
+	//fwrite(message,1,nread,fp2);
  
-	fclose(fp2);
+	//fclose(fp2);
 
 	printf("-------message: %s\n", message);
 
@@ -682,48 +682,126 @@ void comUList(char* buffer,int gid){
 		sprintf(buffer, "ERR\n");
 }
 
-void comPost(char* buffer, char* command){
-	char aux[3], uid[5], gid[2], fileName[24], tsize[3], fsize[10];
+int getNumberMSG(char* fileDir){
+	DIR *d;
+	struct dirent *dir;
+	int nMsg = 0;
+
+	d = opendir(fileDir);
+
+	if (d){
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			nMsg++;
+		}
+		closedir(d);
+		return nMsg;
+	}
+	else{
+		return -1;
+	}
+}
+
+void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
+	char textDIR[strlen(fileDir) + 18], authorDIR[strlen(fileDir) + 22];
+	FILE* fp;
+	
+	memset(textDIR, 0, sizeof(textDIR));
+	memset(authorDIR, 0, sizeof(authorDIR));
+
+	sprintf(textDIR, "%s/%04d", fileDir, msg);
+
+	mkdir(textDIR,0700);
+
+	sprintf(textDIR, "%s/%04d/T E X T.txt", fileDir, msg);
+	sprintf(authorDIR, "%s/%04d/A U T H O R.txt", fileDir, msg);
+
+	fp = fopen(textDIR, "w+");
+	fwrite(text, 1, tsize, fp);
+	fclose(fp);
+
+	fp = fopen(authorDIR, "w+");
+	fwrite(uid, 1, 5, fp);
+	fclose(fp);
+}
+
+void addExtraFile(char* fileDir, int msg, char* command){
 	int n;
 	long f;
-	char *fileDir, *text;
-	FILE *fp2;
+	char fileName[25], fsize[10];
+	FILE* fp;
 
-	memset(tsize, 0, sizeof(tsize));
 	memset(fsize, 0, sizeof(fsize));
-
-	n=sscanf(command, "%s %s %s %s", aux, uid, gid, tsize);
-
-	if(n < 4){
-		sprintf(buffer, "ERR\n");// --------------Verificar depois
-		return;
-	}
-	
-	n = atoi(tsize);
-
-	text= (char*) malloc(sizeof(char)*(n + 1));
-
-	memset(text, 0, sizeof(text));
 	memset(fileName, 0, sizeof(fileName));
 
-	command += (14 + strlen(tsize));
-	strncpy(text, command, n);
-
-	command += (n + 1);
-
-	n=sscanf(command, "%s %s",fileName, fsize);{}
+	n=sscanf(command, "%s %s",fileName, fsize);
 
 	if(strcmp(fileName, "") != 0){
 		f = atoi(fsize);
 		command += strlen(fileName) + strlen(fsize) + 2;
 
-        fp2 = fopen("output.png", "wb"); 
-		fwrite(command,1,f,fp2);
+		sprintf(fileDir, "%s/%04d/%s", fileDir, msg, fileName);
 
-		fclose(fp2);
+        fp = fopen(fileDir, "wb"); 
+		fwrite(command,1,f,fp);
+
+		fclose(fp);
+	}
+}
+
+void comPost(char* buffer, char* command){
+	char uid[6], gid[3], tsize[4];
+	int n, msg;
+	char *fileDir, *text, *commandAux;
+
+	commandAux = command;
+
+	memset(tsize, 0, sizeof(tsize));
+	memset(uid, 0, sizeof(uid));
+	memset(gid, 0, sizeof(gid));
+	commandAux += 4;
+
+	//printf("%s\n", command);
+
+	n=sscanf(commandAux, "%s %s %s", uid, gid, tsize);
+
+	printf("gid: %s\n", gid);
+
+	if(n < 3){
+		sprintf(buffer, "ERR\n");// --------------Verificar depois
+		return;
 	}
 
-	printf("text: %s\nfileName: %s\n", text, fileName);
+	//verifyUID(uid);
+	//verifyGID(gid);
+	//------------------------------------verificar erros
+	
+	if((n = atoi(tsize)) == 0){
+		sprintf(buffer, "ERR\n");
+		return;
+	}
+
+	text= (char*) malloc(sizeof(char)*(n + 1));
+
+	memset(text, 0, sizeof(text));
+
+	commandAux += (10 + strlen(tsize));
+	strncpy(text, commandAux, n);
+	commandAux += (n + 1);
+
+	
+	fileDir = (char*) malloc(sizeof(char) * 43);
+	sprintf(fileDir, "GROUPS/%s/MSG", gid);
+
+
+	msg = getNumberMSG(fileDir);
+
+	addMSG(fileDir, msg + 1, uid, text, n);
+
+	addExtraFile(fileDir, msg + 1, commandAux);
+
+	sprintf(buffer, "RPT %d\n", msg +1);
 
 }
 
@@ -839,16 +917,7 @@ char* processCommands(char* command){
 			sprintf(buffer, "ERR\n");
 	}
 	else if(strcmp(com, "PST")==0){
-
 		comPost(buffer, command);
-
-		/*FILE *fp2;
-        fp2 = fopen("output.jpg", "wb"); 
-		fwrite(oi6,sizeof(char),b,fp2);
-        
-		printf("com: %s\n", command);
-		fclose(fp2);*/
-		
 	}
 
     free(com);

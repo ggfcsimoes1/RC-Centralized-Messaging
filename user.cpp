@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
 #include "user.hpp"
 
 
@@ -217,20 +218,24 @@ char* clientSendUDP(char* message, int sizeString){
     return response;
 }*/
 
-void fileSendTCP(char* filename, int fd){
+void fileSendTCP(char* filename, long fsize, int fd){
     FILE* fp = fopen(filename, "rb");
-    char buffer[11];
+    char buffer[fsize];
+    long toSend, n;
 
-    bzero(buffer, sizeof(buffer)); //just in case
+    bzero(buffer, fsize); //just in case
 
-    while(!feof(fp)) {
-        fread(buffer, 1, sizeof(buffer), fp);
-        write(fd, buffer, sizeof(buffer));
-        bzero(buffer, sizeof(buffer));
+    toSend = fsize;
+    while(toSend > 0) {
+        n = fread(buffer, 1, toSend, fp);
+        n = write(fd, buffer, n);
+        printf("1\n");
+        toSend-= n;
+        bzero(buffer, fsize);
     }
 }
 
-char* clientSendTCP(char* message, char* fileName){
+char* clientSendTCP(char* message, char* fileName, long fsize){
     int fd, errcode;
     ssize_t n = 1;
     socklen_t addrlen;
@@ -238,7 +243,7 @@ char* clientSendTCP(char* message, char* fileName){
     struct sockaddr_in addr;
     char *response, *ptr;
     int i = 1, nread = 0;
-    int messageSize= strlen(message);
+    int messageSize;
 
     fd = socket(AF_INET, SOCK_STREAM, 0);
     if(fd==-1) exit(1);
@@ -254,7 +259,7 @@ char* clientSendTCP(char* message, char* fileName){
     if(n==-1) exit(1);
 
     ptr = message;
-    
+    messageSize= strlen(message);
 
     while(messageSize > 0){
         n=write(fd, ptr, messageSize);
@@ -269,7 +274,7 @@ char* clientSendTCP(char* message, char* fileName){
 
     
     if(fileName != NULL)
-        fileSendTCP(fileName, fd);
+        fileSendTCP(fileName, fsize, fd);
     
     response = NULL;
 
@@ -599,7 +604,7 @@ void commandMyGroups(char* message){
 }
 
 void commandUList(char* message){
-    char* response = clientSendTCP(message, NULL);
+    char* response = clientSendTCP(message, NULL, 0);
     char* users = (char *) malloc(sizeof(char) * strlen(response));
     char com[4], gname[24], status[4];
     int n, uid;
@@ -644,7 +649,7 @@ void commandUList(char* message){
         printf("Unexpected error\n");
     }
 
-        free(users);
+    free(users);
     free(response);
 }
 
@@ -655,19 +660,13 @@ void commandPost(char* command){
     long fsize = 0, hSize;
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
-    strcpy(currentUID, "12345");
-    currentGID = 10;
-
-    //printf("n: %d\n", n);
-    //printf("text: %s\n", text);
-    // isto aceita post "hello , corrigir
 
     if(n < 2){
         printf("Expected post \"text\" or post \"text\" file!\n");
         return;
     }
     
-    if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){
+    if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){//--------------mudar isto
         return;
     }
 
@@ -675,29 +674,155 @@ void commandPost(char* command){
 
     if(fsize == 0){
         message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s\n", currentUID, currentGID, tsize, text);
+        memset(message, 0, sizeof(message));
+
+        sprintf(message, "PST %s %02d %d %s\n", currentUID, currentGID, tsize, text);
     } else {
         message = (char* )malloc(sizeof(char) * 100000);// CORRIGIR TAMANHO
-        sprintf(message, "PST %s %d %d %s %s %ld ", currentUID, currentGID, tsize, text, fileName, fsize);
+        memset(message, 0, sizeof(message));
+
+        sprintf(message, "PST %s %02d %d %s %s %ld ", currentUID, currentGID, tsize, text, fileName, fsize);
         hSize = strlen(message);
     }
 
+    response = clientSendTCP(message, fileName, fsize);
 
-
-    /*FILE* fp2;
-
-    fp2 = fopen("output.jpg", "wb"); 
-    fwrite(message,1,fsize + hSize,fp2);
-
-    fclose(fp2);*/
-
-    //printf(" msg: %s\n", message);
-
-    response = clientSendTCP(message, fileName);
-
-    //printf("Res: %s\n", response);
-    
+    printf("Res: %s\n", response);
+    //--------------------------------------processar resposta
     free(message);
+}
+
+int getDigits(int m){
+    int d = 0;
+
+    while(m > 0){
+        m = m / 10;
+        d++;
+    }
+
+    return d;
+}
+
+void commandRetrieve(char* command){
+    char* response = clientSendTCP(command, NULL, 0);
+    char* responseAux, *fileDir;
+    char com[4], status[4], mid[5], uid[6], fileName[25];
+    int numMSG, n, tsize;
+    long fsize;
+    FILE* fp;
+
+    responseAux = response;
+
+    memset(status, 0, sizeof(status));
+    memset(com, 0, sizeof(com));
+
+
+    if(strcmp("ERR\n",response)==0){
+        fprintf(stderr,"Retrieve error\n");
+        free(response);
+        return;
+    }
+
+    n = sscanf(response, "%s %s %d", com, status, &numMSG);
+    if(n < 2){
+        printf("Unexpected error\n");
+        free(response);
+        return;
+    }
+
+    if(strcmp(com, "RRT") == 0){
+        if(strcmp(status, "OK") == 0){
+
+            responseAux += (8 + getDigits(numMSG));
+
+            while(numMSG > 0){
+                memset(mid, 0, sizeof(mid));
+                memset(uid, 0, sizeof(uid));
+
+                //MID UID Tsize text[ / Fname Fsize data]
+                
+                n = sscanf(responseAux, "%s %s %d", mid, uid, &tsize);
+
+                if(n < 3){
+                    printf("Unexpected error\n");
+                    free(response);
+                    return;
+                }
+
+
+                responseAux += (12 + getDigits(tsize));
+                printf("%s > %.*s\n", mid, tsize, responseAux);
+
+                responseAux += tsize;
+
+                if(responseAux[0] == '\n'){
+                    break;
+                }
+
+                responseAux += 1;
+
+                if(responseAux[0] == '/'){
+                    fileDir = (char*) malloc(sizeof(char) * 50);
+                    memset(fileName, 0, sizeof(fileName));
+                    memset(fileDir, 0, sizeof(fileDir));
+
+                    responseAux += 2;
+
+                    //printf("1> %s\n", fileName); 
+
+                    n = sscanf(responseAux, "%s %ld", fileName, &fsize);
+
+                    if(n < 2){
+                        printf("Unexpected error\n");
+                        free(response);
+                        free(fileDir);
+                        return;
+                    }
+                    
+                    responseAux += (strlen(fileName) + getDigits(fsize) + 2);
+
+                    mkdir("Received_Message_Files", 0700);
+                    sprintf(fileDir, "Received_Message_Files/%s", mid);
+                    mkdir(fileDir, 0700);
+                    sprintf(fileDir, "Received_Message_Files/%s/%s", mid, fileName);
+
+                    fp = fopen(fileDir, "w+");
+                    fwrite(responseAux, 1, fsize, fp);
+                    fclose(fp);
+
+                    printf("    Attached File in : %s\n", fileDir);
+
+                    responseAux += fsize;
+
+                    if(responseAux[0] == '\n'){
+                        free(fileDir);
+                        break;
+                    }
+
+                    response += 1;
+                    free(fileDir);
+                }
+                numMSG--;
+            }
+        }
+        else if(strcmp(status, "NOK") == 0){
+            printf("Retrieve request error\n");
+        }
+        else if(strcmp(status, "EOF") == 0){
+            printf("No messages to be printed!\n");
+        }
+    } 
+    else{
+        printf("Unexpected Error\n");
+    }
+
+    /*printf("1\n");
+    fp = fopen("output.txt", "w+");
+    fwrite(response, 1, 100000, fp);
+    fclose(fp);
+
+    printf("2\n");*/
+    free(response);
 }
 
 void commandExit(char* message){
@@ -719,7 +844,7 @@ void processCommands(){
 
     //VERIFICAR ARGUMENTOS
 
-    while(fgets(buffer,SIZE_STRING,stdin)){
+    while(fgets(buffer,1000,stdin)){//----------------------------corrigir tamanho
         n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
         
         if(n<1)
@@ -890,8 +1015,6 @@ void processCommands(){
 
         else if(strcmp(com,"post") == 0){  
 
-            commandPost(buffer);
-
             if(!isLoggedIn){
                 printf("Not logged in\n");
             }
@@ -903,6 +1026,25 @@ void processCommands(){
             }
 
             strcpy(buffer, "");
+        }
+
+        else if(strcmp(com, "retrieve") == 0 || strcmp(com, "r") == 0){
+            strcpy(buffer, "");
+
+            if(n==2){
+                if(!isLoggedIn){
+                    printf("Not logged in\n");
+                }
+                else if(currentGID == 0){
+                    printf("No group selected\n");
+                }
+                else{
+                    sprintf(buffer, "RTV %s %02d %s\n", currentUID, currentGID, arg1);
+                    commandRetrieve(buffer);
+                }
+            }
+            else
+                printf("Expected 1 arguments!\n");
         }
 
         else if(strcmp(com,"exit")==0){
