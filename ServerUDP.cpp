@@ -703,6 +703,28 @@ int getNumberMSG(char* fileDir){
 	}
 }
 
+char getFileName(char* fileDir){
+	DIR *d;
+	struct dirent *dir;
+	char* fileName;
+
+	d = opendir(fileDir);
+
+	if (d){
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			
+			if (strcmp(dir->d_name, "A U T H O R.txt") == 0 || strcmp(dir->d_name, "T E X T.txt") == 0)
+				continue;
+			else
+				break;
+		}
+		closedir(d);
+		return dir->d_name;
+	}
+}
+
 void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
 	char textDIR[strlen(fileDir) + 18], authorDIR[strlen(fileDir) + 22];
 	FILE* fp;
@@ -762,26 +784,128 @@ void comPost(char* buffer, char* command){
 	memset(gid, 0, sizeof(gid));
 	commandAux += 4;
 
-	//printf("%s\n", command);
-
 	n=sscanf(commandAux, "%s %s %s", uid, gid, tsize);
 
 	printf("gid: %s\n", gid);
 
 	if(n < 3){
-		sprintf(buffer, "ERR\n");// --------------Verificar depois
+		sprintf(buffer, "ERR\n");
 		return;
 	}
 
-	//verifyUID(uid);
-	//verifyGID(gid);
-	//------------------------------------verificar erros
 	
 	if((n = atoi(tsize)) == 0){
 		sprintf(buffer, "ERR\n");
 		return;
 	}
 
+	text= (char*) malloc(sizeof(char)*(n + 1));
+
+	memset(text, 0, sizeof(text));
+
+	commandAux += (10 + strlen(tsize));
+	strncpy(text, commandAux, n);
+	commandAux += (n + 1);
+
+	fileDir = (char*) malloc(sizeof(char) * 43);
+	sprintf(fileDir, "GROUPS/%s/MSG", gid);
+
+	msg = getNumberMSG(fileDir);
+
+	addMSG(fileDir, msg + 1, uid, text, n);
+	addExtraFile(fileDir, msg + 1, commandAux);
+	sprintf(buffer, "RPT %d\n", msg +1);
+
+}
+
+
+void comRetrieve(char* buffer, char* command){
+	char uid[6], gid[3], mid[5];
+	int toSend;
+	long *tsize, *fsize;
+	FILE* fp;
+	char* text
+	char author[5];
+	char[256] fileName;
+	char* fileDir;
+
+	int n, msg;
+	char* authorDir, *commandAux;
+	
+
+	commandAux = command;
+
+	memset(tsize, 0, sizeof(tsize));
+	memset(uid, 0, sizeof(uid));
+	memset(gid, 0, sizeof(gid));
+	commandAux += 4;
+
+	//printf("%s\n", command);
+
+	n=sscanf(commandAux, "%s %s %s", uid, gid, mid);
+	toSend = atoi(mid); //MID initialized with 0001
+
+	toSend-20>0 ? /*does nothing*/: toSend = toSend-20;
+
+
+
+
+	if(n < 3){
+		sprintf(buffer, "ERR\n");
+		return;
+	}
+
+	if(toSend == 1){
+		sprintf(buffer, "RRT NOK\n");
+		return;
+	}
+
+	//verifyUID(uid);
+	//verifyGID(gid);
+	//commandAux += 7 //pointer advances 7 chars (RRT OK )
+	sprintf(buffer, "RRT OK ")
+	while(toSend > 1){
+
+		sprintf(authorDir, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, toSend);
+		sprintf(fileDir, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, toSend);
+
+		fp = fopen(authorDir, "r");
+		fscanf(fp,"%s" author);
+		fclose(fp);
+
+		fp = fopen(fileDir, "r");
+
+		fseek(fp, 0, SEEK_END); //getting file size
+        *tsize = ftell(fp); 
+        fseek(fp, 0, SEEK_SET); 
+
+		text = (char*) malloc(sizeof(char)*(tsize+1);
+		fscanf(fp,"%s", text);
+		fclose(fp);
+	
+		sprintf(buffer, "%04d %s %ld %s", toSend, author, tsize, text);
+
+		sprintf(fileDir, "GROUPS/%s/MSG", gid);
+
+		//memset fileDir?
+
+		if(getNumberMSG(fileDir) > 2){ //has other files to send
+			
+			strcpy(fileName,getFileName(fileDir));
+
+			sprintf(fileDir, "GROUPS/%s/MSG/%s", gid, fileName);
+			fp = fopen(fileDir, "r");
+			fseek(fp, 0, SEEK_END); //codigo repetido, mas o aragon que lide com ponteiros que nao tou com pachorra
+			*fsize = ftell(fp); 
+			fseek(fp, 0, SEEK_SET); 	
+
+			sprintf(buffer, " / %s &ld", file, fsize);
+		}
+		else{
+			//free, break
+		}
+	}
+	
 	text= (char*) malloc(sizeof(char)*(n + 1));
 
 	memset(text, 0, sizeof(text));
