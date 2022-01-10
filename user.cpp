@@ -799,7 +799,7 @@ void commandRetrieve(char* command){
                         break;
                     }
 
-                    response += 1;
+                    responseAux += 1;
                     free(fileDir);
                 }
                 numMSG--;
