@@ -589,6 +589,7 @@ void commandPost(char* command){
     char* response, *message, *data;
     char com[4], text[242], fileName[24];
     int tsize;
+    int msg=-1;
     long fsize = 0, hSize;
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
@@ -618,6 +619,22 @@ void commandPost(char* command){
     }
 
     response = clientSendTCP(message, fileName, fsize);
+
+    sscanf(response,"%s %d\n",com,msg);
+
+    if(strcmp(response,"RPT NOK")==0){
+        printf("Unsuccessful Post\n");
+
+    }
+    else if(strcmp(com,"RPT")==0 && msg!=-1){
+        printf("Successful post\n");
+    }
+    else if(strcmp(response,"ERR")==0){
+        printf("POST error\n");
+    }
+    else
+        printf("Unexpected error\n");
+
 
     printf("Res: %s\n", response);
     //--------------------------------------processar resposta

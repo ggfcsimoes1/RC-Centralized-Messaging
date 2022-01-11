@@ -25,6 +25,93 @@ using namespace std;
 int currentGroups = 0; //number of groups in the directory
 bool verboseMode = false;
 
+
+bool isUserSub(char* uid, char* gid){
+	FILE *fp;
+	char* buffer=(char*) malloc(sizeof(char)*20);
+	sprintf(buffer,"GROUPS/%s/%s.txt",gid,uid);
+	if(fp=fopen(buffer,"r")){
+		fclose(fp);
+		free(buffer);
+		return true;
+	}
+	free(buffer);
+	return false;
+}
+bool verifyIDs(char* ID, int len){
+	int i=0;
+	int n=strlen(ID);
+	if(n!=len)
+		return false;
+	while(i<n){
+		if(!isdigit(ID[i]))
+			return false;
+		i++;
+	}
+	
+	return true;
+}
+bool verifyUID(char* uid){
+	char* buffer;
+	DIR *d;
+	if(verifyIDs(uid,5)){
+		buffer=(char*)malloc(sizeof(char)*12);
+		sprintf(buffer,"USERS/%s",uid);
+		if(d=opendir(buffer)){
+			closedir(d);
+			free(buffer);
+			return true;
+		}	
+		else{
+			free(buffer);
+			return false;
+		}
+			
+	}
+	else
+		return false;
+	
+}
+bool verifyGID(char* gid){
+	char* buffer;
+	DIR *d;
+	if(verifyIDs(gid,2)){
+		buffer=(char*)malloc(sizeof(char)*10);
+		sprintf(buffer,"GROUPS/%s",gid);
+		if(d=opendir(buffer)){
+			closedir(d);
+			free(buffer);
+			return true;
+		}
+		else{
+			free(buffer);
+			return false;
+		}
+	}
+	else
+		return false;
+}
+bool verifyMID(char* MID,char* gid){
+	DIR *d;
+	char* buffer;
+	if(verifyIDs(MID,4)){
+		buffer=(char*)malloc(sizeof(char)*12);
+		sprintf(buffer,"GROUPS/%s/%s",gid,MID);
+		if(d=opendir(buffer)){
+			closedir(d);
+			free(buffer);
+			return true;
+		}
+		else{
+			free(buffer);
+			return false;
+		}
+			
+	}
+	else
+		return false;
+}
+
 int setSocketUDP(){
 	int fd,errcode;
 	ssize_t n;
