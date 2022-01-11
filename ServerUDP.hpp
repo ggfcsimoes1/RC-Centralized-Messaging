@@ -14,7 +14,7 @@ void comUnregister(char* buffer, int UID, char* pass);
 void comLogin(char* buffer, int UID, char* pass);
 void comLogout(char* buffer, int UID, char* pass);
 void comExit();
-char* processCommands(char* command);
+char* processCommands(char* command, int fd);
 void comGroups();
 
 #endif

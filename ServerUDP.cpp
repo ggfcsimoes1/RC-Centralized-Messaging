@@ -107,7 +107,7 @@ int receiveUDP(int fd){
 		printf("sent by [%s:%s]\n",host,service);
 		//dar print no process commands do GID e UID, e a descricao do comando
 	}
-	buffer2 = processCommands(buffer);
+	buffer2 = processCommands(buffer, 0);
 	
 	n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
 	if(n==-1)
@@ -118,11 +118,10 @@ int receiveUDP(int fd){
 
 void receiveTCP(int fd){
     int errcode, i = 1;
-    ssize_t n, toWrite;
+    ssize_t n;
 	long nread = 0;
-    struct addrinfo hints, *res;
     //char buffer[11];
-    char * buffer2, *message, *ptr;
+    char *message;
 
 	//FILE* fp2;
 
@@ -160,12 +159,19 @@ void receiveTCP(int fd){
 
 	printf("-------message: %s\n", message);
 
-    
+    processCommands(message, fd);
+	
+	free(message);
+}
 
-    buffer2 = processCommands(message);
+void sendTCP(char* buffer, int fd){
+	ssize_t n, toWrite;
+	char *ptr;
 
-    ptr = buffer2;
-    toWrite = strlen(buffer2);
+	printf("%s\n", buffer);
+
+	ptr = buffer;
+    toWrite = strlen(buffer);
 
     while(toWrite > 0){
         n=write(fd, ptr, toWrite);
@@ -177,8 +183,23 @@ void receiveTCP(int fd){
         ptr+= n;
     }
 
-    free(buffer2);
-    free(message);
+    free(buffer);
+}
+
+void sendFileTCP(FILE *fp, int fd, int fsize){
+    char buffer[fsize];
+    long toSend, n;
+
+    bzero(buffer, fsize); //just in case
+
+    toSend = fsize;
+    while(toSend > 0) {
+        n = fread(buffer, 1, toSend, fp);
+        n = write(fd, buffer, n);
+        
+		toSend-= n;
+        bzero(buffer, fsize);
+    }
 }
 
 void getNumberOfGroups(){
@@ -268,6 +289,27 @@ bool isLoggedIn(char* fileDirectory){
 	return errcode;
 }
 
+int getNumberEntInDir(char* fileDir){
+	DIR *d;
+	struct dirent *dir;
+	int nDir = 0;
+
+	d = opendir(fileDir);
+
+	if (d){
+		while ((dir = readdir(d)) != NULL)	{
+			if(dir->d_name[0]=='.')
+				continue;
+			nDir++;
+		}
+		closedir(d);
+		return nDir;
+	}
+	else{
+		return -1;
+	}
+}
+
 void comRegister(char* buffer, int UID, char* pass){
 	
 	FILE *fp;
@@ -316,7 +358,7 @@ void comUnregister(char* buffer, int UID, char* pass){
     DIR *d;
     struct dirent *dir;
     int i=0;
-    char GIDname[30];
+    char *GIDname = (char*) malloc(sizeof(char) * 30);
     char *fileDirectory = (char*) malloc(sizeof(char) * SIZE_STRING);//HARDCODEDs
 
     sprintf(buffer, "RUN NOK\n");
@@ -332,7 +374,7 @@ void comUnregister(char* buffer, int UID, char* pass){
             }
             d = opendir("GROUPS");
             if (d)    {
-                while ((dir = readdir(d)) != NULL)    {
+                while ((dir = readdir(d)) != NULL){
                     if(dir->d_name[0]=='.')
                         continue;
                     if(strlen(dir->d_name)>2)
@@ -356,6 +398,7 @@ void comUnregister(char* buffer, int UID, char* pass){
             sprintf(buffer, "ERR\n");
     }
     free(fileDirectory);
+	free(GIDname);
 }
 
 void comLogin(char* buffer, int UID, char* pass){
@@ -396,12 +439,13 @@ void comLogout(char* buffer, int UID, char* pass){
 	free(fileDirectory);
 }
 
-void comGroups(char* buffer){ //implementar messageID
+void comGroups(char* buffer){
 	DIR *d;
 	struct dirent *dir;
 	int i=0;
 	FILE *fp;
-	char GIDname[30];
+	char *GIDname = (char*) malloc(sizeof(char) * 30);
+	char *dirName = (char*) malloc(sizeof(char) * 60);
 	
 	d = opendir("GROUPS");
 
@@ -414,15 +458,17 @@ void comGroups(char* buffer){ //implementar messageID
 			if(strlen(dir->d_name)>2)
 				continue;
 
-			sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+			sprintf(dirName,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+			fp=fopen(dirName,"r");
 
-			fp=fopen(GIDname,"r");
 			if(fp!=NULL)	{
 				fscanf(fp,"%24s",GIDname);
 				fclose(fp);
 			}
 
-			sprintf(buffer, "%s %s %s 0000", buffer, dir->d_name, GIDname);
+			sprintf(dirName, "GROUPS/%s/MSG", dir->d_name);
+
+			sprintf(buffer, "%s %s %s %04d", buffer, dir->d_name, GIDname, getNumberEntInDir(dirName));
 			++i;
 			if(i==99)
 				break;
@@ -434,6 +480,7 @@ void comGroups(char* buffer){ //implementar messageID
 	else
 		sprintf(buffer, "ERR\n");
 	
+	free(GIDname);
 }
 
 void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
@@ -549,8 +596,9 @@ void comSubscribe(char* buffer, int UID, char* GID, char* GNAME){
 }
 
 void comUnsubscribe(char* buffer, int UID, char* GID){
-
 	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+	int removeStatus;
+
 	sprintf(fileDirectory, "GROUPS/%s/%05d.txt", GID, UID);
 
 	if(strlen(GID) != 2 || !isdigit(GID[0]) || !isdigit(GID[1]) ||atoi(GID) > currentGroups || atoi(GID) < 0){ // check if GID is valid
@@ -559,7 +607,7 @@ void comUnsubscribe(char* buffer, int UID, char* GID){
 		return;
 	}
 	
-	int removeStatus = remove(fileDirectory);
+	removeStatus = remove(fileDirectory);
 	if(removeStatus == 0){ //if it was able to remove
 		sprintf(buffer, "RGU OK\n");
 	}
@@ -569,6 +617,7 @@ void comUnsubscribe(char* buffer, int UID, char* GID){
 	else{
 		sprintf(buffer, "RGU NOK\n");
 	}
+
 	free(fileDirectory);
 	return;
 }
@@ -578,8 +627,9 @@ void comMyGroups(char* buffer,int uid){
 	struct dirent *dir;
 	int i=0,numGroups=0;
 	FILE *fp;
-	char GIDname[30];
-	char* aux=(char*)malloc(sizeof(char)*10000);// Alterar valor
+	char *GIDname = (char*) malloc(sizeof(char) * 30);
+	char* aux=(char*)malloc(sizeof(char)*10000);// -----------------Alterar valor
+	char* dirName = (char*) malloc(sizeof(char) * 60);
 
 	memset(aux, 0, sizeof(aux));
 	sprintf(aux, "USERS/%d/%d_pass.txt", uid, uid);
@@ -604,19 +654,28 @@ void comMyGroups(char* buffer,int uid){
 			if(strlen(dir->d_name)>2)
 				continue;
 
-			sprintf(GIDname,"GROUPS/%s/%05d.txt",dir->d_name,uid);
-			fp=fopen(GIDname,"r");
+			memset(dirName, 0, sizeof(dirName));
+			memset(GIDname, 0, sizeof(GIDname));
+
+			sprintf(dirName,"GROUPS/%s/%05d.txt",dir->d_name,uid);
+			fp=fopen(dirName,"r");
+
 			if(fp != NULL)	{
 				fclose(fp);
+
 				numGroups++;
-				sprintf(GIDname,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
-				fp=fopen(GIDname,"r");
+
+				sprintf(dirName,"GROUPS/%s/%s_name.txt",dir->d_name,dir->d_name);
+				fp=fopen(dirName,"r");
+				
 				if(fp)	{
 					fscanf(fp,"%24s",GIDname);
 					fclose(fp);
 				}
 
-				sprintf(aux, "%s %s %s 0000", aux, dir->d_name, GIDname);	
+				sprintf(dirName, "GROUPS/%s/MSG", dir->d_name);
+
+				sprintf(aux, "%s %s %s %04d", aux, dir->d_name, GIDname, getNumberEntInDir(dirName));	
 			}
 			
 			++i;
@@ -634,7 +693,10 @@ void comMyGroups(char* buffer,int uid){
 	}
 	else
 		sprintf(buffer, "ERR\n");
+	
+	free(dirName);
 	free(aux);
+	free(GIDname);
 }
 
 void comUList(char* buffer,int gid){
@@ -682,31 +744,9 @@ void comUList(char* buffer,int gid){
 		sprintf(buffer, "ERR\n");
 }
 
-int getNumberMSG(char* fileDir){
+char* getFileName(char* fileDir){
 	DIR *d;
 	struct dirent *dir;
-	int nMsg = 0;
-
-	d = opendir(fileDir);
-
-	if (d){
-		while ((dir = readdir(d)) != NULL)	{
-			if(dir->d_name[0]=='.')
-				continue;
-			nMsg++;
-		}
-		closedir(d);
-		return nMsg;
-	}
-	else{
-		return -1;
-	}
-}
-
-char getFileName(char* fileDir){
-	DIR *d;
-	struct dirent *dir;
-	char* fileName;
 
 	d = opendir(fileDir);
 
@@ -723,6 +763,7 @@ char getFileName(char* fileDir){
 		closedir(d);
 		return dir->d_name;
 	}
+	return NULL;
 }
 
 void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
@@ -810,127 +851,136 @@ void comPost(char* buffer, char* command){
 	fileDir = (char*) malloc(sizeof(char) * 43);
 	sprintf(fileDir, "GROUPS/%s/MSG", gid);
 
-	msg = getNumberMSG(fileDir);
+	msg = getNumberEntInDir(fileDir);
 
 	addMSG(fileDir, msg + 1, uid, text, n);
 	addExtraFile(fileDir, msg + 1, commandAux);
+
 	sprintf(buffer, "RPT %d\n", msg +1);
 
 }
 
 
-void comRetrieve(char* buffer, char* command){
-	char uid[6], gid[3], mid[5];
-	int toSend;
-	long *tsize, *fsize;
+void comRetrieve(int uid, char* gid, char* mid, int fd){
+	int msgRead = 0, n, nMid = atoi(mid), lastMid = 4;
+	int tsize;
+	long fsize;
+	char *bufferAux, *text, *fileName, *message;
+	char author[6];
 	FILE* fp;
-	char* text
-	char author[5];
-	char[256] fileName;
-	char* fileDir;
 
-	int n, msg;
-	char* authorDir, *commandAux;
-	
-
-	commandAux = command;
-
-	memset(tsize, 0, sizeof(tsize));
-	memset(uid, 0, sizeof(uid));
-	memset(gid, 0, sizeof(gid));
-	commandAux += 4;
-
-	//printf("%s\n", command);
-
-	n=sscanf(commandAux, "%s %s %s", uid, gid, mid);
-	toSend = atoi(mid); //MID initialized with 0001
-
-	toSend-20>0 ? /*does nothing*/: toSend = toSend-20;
-
-
-
-
-	if(n < 3){
-		sprintf(buffer, "ERR\n");
-		return;
-	}
-
-	if(toSend == 1){
-		sprintf(buffer, "RRT NOK\n");
-		return;
-	}
+	fileName = (char* ) malloc(sizeof(char) * 25);
+	bufferAux = (char*) malloc(sizeof(char) * 80);
+	message = (char*) malloc(sizeof(char) * 15);
 
 	//verifyUID(uid);
 	//verifyGID(gid);
-	//commandAux += 7 //pointer advances 7 chars (RRT OK )
-	sprintf(buffer, "RRT OK ")
-	while(toSend > 1){
+	//verifyMID(mid);
+	//isUserSub(uid, gid);
 
-		sprintf(authorDir, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, toSend);
-		sprintf(fileDir, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, toSend);
+	//printf("%s\n", command);
+	memset(message, 0, sizeof(message));
 
-		fp = fopen(authorDir, "r");
-		fscanf(fp,"%s" author);
-		fclose(fp);
+	sprintf(message, "RRT OK %d", lastMid);
 
-		fp = fopen(fileDir, "r");
+	//printf("msg: %s\n", message);
+	sendTCP(message, fd);
 
-		fseek(fp, 0, SEEK_END); //getting file size
-        *tsize = ftell(fp); 
-        fseek(fp, 0, SEEK_SET); 
+	while(msgRead < 20){
 
-		text = (char*) malloc(sizeof(char)*(tsize+1);
-		fscanf(fp,"%s", text);
-		fclose(fp);
-	
-		sprintf(buffer, "%04d %s %ld %s", toSend, author, tsize, text);
+		message = (char*) malloc(sizeof(char) * 340);
 
-		sprintf(fileDir, "GROUPS/%s/MSG", gid);
+		memset(message, 0, sizeof(message));
+		memset(bufferAux, 0, sizeof(bufferAux));
+		memset(author, 0, sizeof(author));
 
-		//memset fileDir?
-
-		if(getNumberMSG(fileDir) > 2){ //has other files to send
-			
-			strcpy(fileName,getFileName(fileDir));
-
-			sprintf(fileDir, "GROUPS/%s/MSG/%s", gid, fileName);
-			fp = fopen(fileDir, "r");
-			fseek(fp, 0, SEEK_END); //codigo repetido, mas o aragon que lide com ponteiros que nao tou com pachorra
-			*fsize = ftell(fp); 
-			fseek(fp, 0, SEEK_SET); 	
-
-			sprintf(buffer, " / %s &ld", file, fsize);
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, nMid);
+		
+		if((fp = fopen(bufferAux, "r")) != NULL){
+			fread(author, 1, 5, fp);
+			fclose(fp);
+		} 
+		else if(errno == ENOENT){
+			break;
 		}
 		else{
-			//free, break
+			free(fileName);
+			free(bufferAux);
+			free(message);
+			return;
 		}
+
+
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, nMid);
+		
+		if((fp = fopen(bufferAux, "r")) != NULL){
+
+			fseek(fp, 0, SEEK_END); //getting file size
+			tsize = ftell(fp); 
+			fseek(fp, 0, SEEK_SET); 
+
+			text = (char*) malloc(tsize + 1);
+			memset(text, 0, sizeof(text));
+			
+			fread(text, 1, tsize, fp);
+			fclose(fp);
+		}
+		else if(errno == ENOENT){
+			break;
+		}
+		else{
+			free(fileName);
+			free(bufferAux);
+			free(message);
+			return;
+		}
+
+
+		sprintf(message, " %04d %s %d %s", nMid, author, tsize, text);
+
+		//printf("msg: %s\n", message);
+
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d", gid, nMid);
+
+		if(getNumberEntInDir(bufferAux) > 2){ //has other files to send
+			
+			strcpy(fileName,getFileName(bufferAux));
+
+			sprintf(bufferAux, "GROUPS/%s/MSG/%04d/%s", gid, nMid, fileName);
+			
+			if((fp = fopen(bufferAux, "r")) != NULL){
+				fseek(fp, 0, SEEK_END); 
+				fsize = ftell(fp); 
+				fseek(fp, 0, SEEK_SET); 	
+
+				sprintf(message, "%s / %s %ld ", message, fileName, fsize);
+
+				sendTCP(message, fd);
+				sendFileTCP(fp, fd, fsize);
+				fclose(fp);
+			}
+			else{
+				free(fileName);
+				free(bufferAux);
+				free(message);
+				return;
+			}
+		}
+		else{
+			sendTCP(message, fd);
+		}
+
+		nMid++;
+		msgRead++;
+		free(text);
 	}
-	
-	text= (char*) malloc(sizeof(char)*(n + 1));
 
-	memset(text, 0, sizeof(text));
-
-	commandAux += (10 + strlen(tsize));
-	strncpy(text, commandAux, n);
-	commandAux += (n + 1);
-
-	
-	fileDir = (char*) malloc(sizeof(char) * 43);
-	sprintf(fileDir, "GROUPS/%s/MSG", gid);
-
-
-	msg = getNumberMSG(fileDir);
-
-	addMSG(fileDir, msg + 1, uid, text, n);
-
-	addExtraFile(fileDir, msg + 1, commandAux);
-
-	sprintf(buffer, "RPT %d\n", msg +1);
-
+	free(fileName);
+	free(bufferAux);
 }
 
-char* processCommands(char* command){
-	char* groupNames;
+char* processCommands(char* command, int fd){
+	char* buffer2;
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
     char* arg2=(char*) malloc(sizeof(char)*SIZE_STRING);
 	char* arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
@@ -987,12 +1037,13 @@ char* processCommands(char* command){
 	else if(strcmp(com,"GLS")==0){
 		
 		if(n==1){
-			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
-        	comGroups(groupNames);
+			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
+        	comGroups(buffer2);
+
 			free(com);
 			free(arg2);
 			free(arg3);
-			return groupNames;
+			return buffer2;
 		}
 		else
 			sprintf(buffer, "ERR\n");
@@ -1021,12 +1072,13 @@ char* processCommands(char* command){
 		n=sscanf(command, "%s %d\n",com, &arg1);
 
 		if(n==2){
-			groupNames = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
-			comMyGroups(groupNames,arg1);
+			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
+			comMyGroups(buffer2,arg1);
+
 			free(com);
 			free(arg2);
 			free(arg3);
-			return groupNames;
+			return buffer2;
 		}
 		else
 			sprintf(buffer, "ERR\n");
@@ -1039,9 +1091,38 @@ char* processCommands(char* command){
 		}
 		else
 			sprintf(buffer, "ERR\n");
+
+		sendTCP(buffer, fd);
+		free(com);
+		free(arg2);
+		free(arg3);
+		return NULL;
 	}
 	else if(strcmp(com, "PST")==0){
 		comPost(buffer, command);
+		sendTCP(buffer, fd);
+
+		free(com);
+		free(arg2);
+		free(arg3);
+		return NULL;
+	}
+	else if(strcmp(com, "RTV") == 0){
+		n = sscanf(command, "%s %d %s %s", com, &arg1, arg2, arg3);
+
+		if(n==4){
+			//SendTCP included in comRetrieve
+			comRetrieve(arg1, arg2, arg3, fd);
+		}
+		else{
+			sprintf(buffer, "ERR\n");
+			sendTCP(buffer, fd);
+		}
+
+		free(com);
+		free(arg2);
+		free(arg3);
+		return NULL;
 	}
 
     free(com);

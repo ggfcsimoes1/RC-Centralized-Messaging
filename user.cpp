@@ -150,74 +150,6 @@ char* clientSendUDP(char* message, int sizeString){
     return response;
 }
 
-/*char* clientSendTCP(char* message){
-    int fd, errcode;
-    ssize_t n, toWrite;
-    socklen_t addrlen;
-    struct addrinfo hints, *res;
-    struct sockaddr_in addr;
-    char c[1];
-    char *response, *ptr;
-    int i = 0;
-
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if(fd==-1) exit(1);
-
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
-
-    errcode=getaddrinfo(DSIP, DSport, &hints, &res);
-    if(errcode!=0) exit(1);
-
-    n = connect(fd, res-> ai_addr, res-> ai_addrlen);
-    if(n==-1) exit(1);
-
-    ptr = message;
-    toWrite = strlen(message);
-    
-    while(toWrite > 0){
-        n=write(fd, ptr, toWrite);
-
-        if(n<=0)
-            exit(1);
-
-        toWrite-= n;
-        ptr+= n;
-    }
-    
-    response = NULL;
-
-    while(1){
-        if((n=read(fd, c, 1)) == -1){
-            exit(1);
-        }
-        else if(n == 0){
-            continue;
-        }
-
-        i++;
-
-        response =(char*) realloc(response, sizeof(char) * (i + 1));
-
-        if(i == 1){
-            memset(response, 0, sizeof(response));
-        }
-        
-        strcat(response, c);
-
-
-        if(strcmp(c, "\n") == 0){
-            break;
-        }
-    }
-
-    freeaddrinfo(res);
-    close(fd);
-    
-    return response;
-}*/
-
 void fileSendTCP(char* filename, long fsize, int fd){
     FILE* fp = fopen(filename, "rb");
     char buffer[fsize];
@@ -751,7 +683,7 @@ void commandRetrieve(char* command){
 
 
                 responseAux += (12 + getDigits(tsize));
-                printf("%s > %.*s\n", mid, tsize, responseAux);
+                printf("%s(User: %s) > %.*s\n", mid, uid, tsize, responseAux);
 
                 responseAux += tsize;
 
@@ -790,7 +722,7 @@ void commandRetrieve(char* command){
                     fwrite(responseAux, 1, fsize, fp);
                     fclose(fp);
 
-                    printf("    Attached File in : %s\n", fileDir);
+                    printf("    Attached File in : %s (%ldB)\n", fileDir, fsize);
 
                     responseAux += fsize;
 
@@ -798,6 +730,7 @@ void commandRetrieve(char* command){
                         free(fileDir);
                         break;
                     }
+
 
                     responseAux += 1;
                     free(fileDir);
@@ -816,12 +749,6 @@ void commandRetrieve(char* command){
         printf("Unexpected Error\n");
     }
 
-    /*printf("1\n");
-    fp = fopen("output.txt", "w+");
-    fwrite(response, 1, 100000, fp);
-    fclose(fp);
-
-    printf("2\n");*/
     free(response);
 }
 
