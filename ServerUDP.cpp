@@ -956,17 +956,19 @@ void comRetrieve(int uid, char* gid, char* mid, int fd){
 	char author[6];
 	FILE* fp;
 
+	message = (char*) malloc(sizeof(char) * 15);
+	memset(message, 0, sizeof(message));
+
+	if(!verifyUID(uid) || !verifyGID(gid) || !verifyMID(mid) || !isUserSub(uid, gid)){
+		strcpy(message, "RRT NOK\n");
+		sendTCP(message);
+		return;
+	}
+
 	fileName = (char* ) malloc(sizeof(char) * 25);
 	bufferAux = (char*) malloc(sizeof(char) * 80);
-	message = (char*) malloc(sizeof(char) * 15);
-
-	//verifyUID(uid);
-	//verifyGID(gid);
-	//verifyMID(mid);
-	//isUserSub(uid, gid);
 
 	//printf("%s\n", command);
-	memset(message, 0, sizeof(message));
 
 	sprintf(message, "RRT OK %d", lastMid);
 
