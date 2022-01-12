@@ -152,17 +152,20 @@ char* clientSendUDP(char* message, int sizeString){
 
 void fileSendTCP(char* filename, long fsize, int fd){
     FILE* fp = fopen(filename, "rb");
-    char* buffer = (char*) malloc(sizeof(char)*fsize);
+    char* buffer = (char*) malloc(sizeof(char)*1024);
     long toSend, n;
 
-    bzero(buffer, fsize); //just in case
+    bzero(buffer, 1024); //just in case
 
     toSend = fsize;
     while(toSend > 0) {
-        n = fread(buffer, 1, toSend, fp);
+        printf("zzzzz\n");
+        n = fread(buffer, 1, 1024, fp);
+        
         n = write(fd, buffer, n);
+        printf("enviado:%ldd",n);
         toSend-= n;
-        bzero(buffer, fsize);
+        bzero(buffer, 1024);
     }
     free(buffer);
     return;

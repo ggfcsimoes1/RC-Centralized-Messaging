@@ -215,15 +215,15 @@ void receiveTCP(int fd){
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
+		message =(char*) realloc(message, sizeof(char) * ((i * 512) + 1));
 
         if(i == 1){
 
             memset(message, 0, sizeof(message));
-			puts("limpou");
+			
         }
 
-		n=read(fd, message + nread , 10);
+		n=read(fd, message + nread , 512);
 
 		printf("%ld\n", nread);
 
@@ -237,6 +237,8 @@ void receiveTCP(int fd){
         nread+= n;
         i++;
     }
+	message[nread]='\0'; //tem lixo no fim
+	
 
 	//printf("%ld\n", nread);
 	
@@ -244,8 +246,8 @@ void receiveTCP(int fd){
  
 	//fclose(fp2);
 
-	printf("-------message: %s\n", message);
-	printf("end");
+	
+	
 
     processCommands(message, fd);
 	
@@ -256,7 +258,7 @@ void sendTCP(char* buffer, int fd){
 	ssize_t n, toWrite;
 	char *ptr;
 
-	printf("%s\n", buffer);
+	
 
 	ptr = buffer;
     toWrite = strlen(buffer);
@@ -887,8 +889,9 @@ void addExtraFile(char* fileDir, int msg, char* command){
 	memset(fileName, 0, sizeof(fileName));
 
 	n=sscanf(command, "%s %s",fileName, fsize);
-
-	if(strcmp(fileName, "") != 0){
+	printf("%s %s\n",fileName,fsize);
+	if(n==2){
+		printf("boas velho\n");
 		f = atoi(fsize);
 		command += strlen(fileName) + strlen(fsize) + 2;
 
