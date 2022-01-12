@@ -214,13 +214,13 @@ void receiveTCP(int fd){
 
     message = NULL;
 
-	//fp2 = fopen("gustavo.jpg", "wb");
-
     while(1){
 		message =(char*) realloc(message, sizeof(char) * ((i * 10) + 1));
 
         if(i == 1){
+
             memset(message, 0, sizeof(message));
+			puts("limpou");
         }
 
 		n=read(fd, message + nread , 10);
@@ -245,6 +245,7 @@ void receiveTCP(int fd){
 	//fclose(fp2);
 
 	printf("-------message: %s\n", message);
+	printf("end");
 
     processCommands(message, fd);
 	
@@ -904,7 +905,7 @@ void comPost(char* buffer, char* command){
 	char uid[6], gid[3], tsize[4];
 	int n, msg;
 	char *fileDir, *text, *commandAux;
-
+	
 	commandAux = command;
 
 	memset(tsize, 0, sizeof(tsize));

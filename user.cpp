@@ -152,20 +152,20 @@ char* clientSendUDP(char* message, int sizeString){
 
 void fileSendTCP(char* filename, long fsize, int fd){
     FILE* fp = fopen(filename, "rb");
-    char buffer[fsize];
+    char* buffer = (char*) malloc(sizeof(char)*fsize);
     long toSend, n;
 
     bzero(buffer, fsize); //just in case
 
-    printf("12\n");
     toSend = fsize;
     while(toSend > 0) {
         n = fread(buffer, 1, toSend, fp);
         n = write(fd, buffer, n);
-        printf("1\n");
         toSend-= n;
         bzero(buffer, fsize);
     }
+    free(buffer);
+    return;
 }
 
 char* clientSendTCP(char* message, char* fileName, long fsize){
@@ -197,15 +197,12 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
     while(messageSize > 0){
         n=write(fd, ptr, messageSize);
 
-        printf("%ld\n", n);
-        printf("%d\n", messageSize);
         if(n<=0)
             exit(1);
 
         messageSize-= n;
         ptr+= n;
     }
-
     
     if(fileName != NULL)
         fileSendTCP(fileName, fsize, fd);
@@ -213,15 +210,14 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
     response = NULL;
 
     while(n > 0){
-
-        response =(char*) realloc(response, sizeof(char) * ((i * 10) + 1));
+        response =(char*) realloc(response, sizeof(char) * ((i * 512) + 1));
 
         if(i == 1){
             memset(response, 0, sizeof(response));
         }
 
-        n=read(fd, response + nread, 10);
-
+        n=read(fd, response + nread, 512);
+        
         nread += n;
         i++;
        
@@ -592,7 +588,9 @@ void commandPost(char* command){
     char com[4], text[242], fileName[24];
     int tsize;
     int msg = -1;
-    long fsize = 0, hSize;
+    long fsize = 0;
+    
+    printf("%s\n", command);
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
 
@@ -602,26 +600,25 @@ void commandPost(char* command){
     }
     
     if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){//--------------mudar isto
-        return;
+        return; //isto faz o que mesmo ??
     }
 
     tsize = strlen(text);
 
     if(fsize == 0){
-        message = (char* )malloc(sizeof(char) * 10000);// CORRIGIR TAMANHO
+        puts("fsize test");
+        message = (char*) malloc(sizeof(char) * (19+tsize));// command size + text size
         memset(message, 0, sizeof(message));
-
         sprintf(message, "PST %s %02d %d %s\n", currentUID, currentGID, tsize, text);
+        response = clientSendTCP(message, NULL, 0);
+
     } else {
-        message = (char* )malloc(sizeof(char) * 100000);// CORRIGIR TAMANHO
+        message = (char*) malloc(sizeof(char) * (18+tsize+strlen(fileName)+13));// command size + text size + fileName size + length of fSize
         memset(message, 0, sizeof(message));
-
         sprintf(message, "PST %s %02d %d %s %s %ld ", currentUID, currentGID, tsize, text, fileName, fsize);
-        hSize = strlen(message);
+        response = clientSendTCP(message, fileName, fsize);
     }
-
-    response = clientSendTCP(message, fileName, fsize);
-
+    
     sscanf(response,"%s %d\n",com,&msg);
 
     if(strcmp(response,"RPT NOK")==0){
@@ -629,7 +626,7 @@ void commandPost(char* command){
 
     }
     else if(strcmp(com,"RPT")==0 && msg!=-1){
-        printf("Successfully posted %d messages\n", msg);
+        printf("Messages successfully posted! (MID: %d)\n", msg);
     }
     else if(strcmp(response,"ERR")==0){
         printf("POST error\n");
