@@ -912,7 +912,7 @@ void comPost(char* buffer, char* command){
 	memset(gid, 0, sizeof(gid));
 	commandAux += 4;
 
-	n=sscanf(commandAux, "%s %s %s", uid, gid, tsize);
+	n=sscanf(commandAux, "%s %s %s", uid, gid, tsize);//--------------------fix response
 
 	printf("gid: %s\n", gid);
 
@@ -959,11 +959,11 @@ void comRetrieve(int uid, char* gid, char* mid, int fd){
 	message = (char*) malloc(sizeof(char) * 15);
 	memset(message, 0, sizeof(message));
 
-	if(!verifyUID(uid) || !verifyGID(gid) || !verifyMID(mid) || !isUserSub(uid, gid)){
+	/*if(!verifyUID(uid) || !verifyGID(gid) || !verifyMID(mid) || !isUserSub(uid, gid)){
 		strcpy(message, "RRT NOK\n");
 		sendTCP(message);
 		return;
-	}
+	}*/
 
 	fileName = (char* ) malloc(sizeof(char) * 25);
 	bufferAux = (char*) malloc(sizeof(char) * 80);

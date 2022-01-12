@@ -157,6 +157,7 @@ void fileSendTCP(char* filename, long fsize, int fd){
 
     bzero(buffer, fsize); //just in case
 
+    printf("12\n");
     toSend = fsize;
     while(toSend > 0) {
         n = fread(buffer, 1, toSend, fp);
@@ -197,6 +198,7 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
         n=write(fd, ptr, messageSize);
 
         printf("%ld\n", n);
+        printf("%d\n", messageSize);
         if(n<=0)
             exit(1);
 
@@ -589,7 +591,7 @@ void commandPost(char* command){
     char* response, *message, *data;
     char com[4], text[242], fileName[24];
     int tsize;
-    int msg=-1;
+    int msg = -1;
     long fsize = 0, hSize;
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
@@ -620,14 +622,14 @@ void commandPost(char* command){
 
     response = clientSendTCP(message, fileName, fsize);
 
-    sscanf(response,"%s %d\n",com,msg);
+    sscanf(response,"%s %d\n",com,&msg);
 
     if(strcmp(response,"RPT NOK")==0){
         printf("Unsuccessful Post\n");
 
     }
     else if(strcmp(com,"RPT")==0 && msg!=-1){
-        printf("Successful post\n");
+        printf("Successfully posted %d messages\n", msg);
     }
     else if(strcmp(response,"ERR")==0){
         printf("POST error\n");
@@ -635,9 +637,6 @@ void commandPost(char* command){
     else
         printf("Unexpected error\n");
 
-
-    printf("Res: %s\n", response);
-    //--------------------------------------processar resposta
     free(message);
 }
 
