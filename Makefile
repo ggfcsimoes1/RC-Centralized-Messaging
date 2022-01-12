@@ -26,3 +26,9 @@ rmusers: #Removes "USERS" folder
 rmgroups: #Removes "GROUPS" folder
 	@echo Cleaning Groups...
 		rm -r GROUPS
+
+builddir:
+	@echo Rebuilding dir...
+	./user < SCR/script_06.txt
+	./user < SCR/script_09.txt
+	./user < SCR/script_14.txt
