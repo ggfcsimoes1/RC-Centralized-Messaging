@@ -250,7 +250,7 @@ void receiveTCP(int fd){
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 64) + 1));
+		message =(char*) realloc(message, sizeof(char) * ((i * 32) + 1));
 
         if(i == 1){
 
@@ -258,7 +258,7 @@ void receiveTCP(int fd){
 			
         }
 
-		n=read(fd, message + nread , 64);
+		n=read(fd, message + nread , 32);
 
 		printf("%ld\n", nread);
 
