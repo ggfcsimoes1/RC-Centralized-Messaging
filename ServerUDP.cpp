@@ -130,7 +130,7 @@ bool verifyMID(char* MID,char* gid){
 
 bool userLogged(char* uid){
 	FILE *fp;
-	char* buffer = (char*) malloc(sizeof(char) * 20);
+	char* buffer = (char*) malloc(sizeof(char) * SIZE_STRING);
 
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "USERS/%s/%s_login.txt", uid, uid);
@@ -221,12 +221,14 @@ int receiveUDP(int fd){
 	n=recvfrom(fd,buffer,128,0,(struct sockaddr*) &addr, &addrlen);
 	if(n==-1)
 		return -1;
+	bzero(buffer + n, sizeof(buffer + n));
 	if((errcode=getnameinfo((struct sockaddr*)&addr,addrlen,host,sizeof host,service,sizeof service,0))!=0)
 		fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
 	else if (verboseMode){ //if the server is running with -v
 		printf("sent by [%s:%s]\n",host,service);
 		//dar print no process commands do GID e UID, e a descricao do comando
 	}
+
 	buffer2 = processCommands(buffer, 0);
 	
 	n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
@@ -637,8 +639,8 @@ bool createGroup(char *UID, char* GNAME){
 void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 	
 	FILE *fp;
-	char* fileDirectory1 = (char*) malloc(sizeof(char)*SIZE_STRING);
-	char* name = (char*) malloc(sizeof(char)*SIZE_STRING);
+	char fileDirectory1[128];
+	char name[25];
 
 	if(!(verifyGID(GID) || strcmp(GID, "00") == 0)){
 		sprintf(buffer, "RGS E_GRP\n");
@@ -648,7 +650,7 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 		sprintf(buffer, "RGS E_USR\n");
 		return;
 	}
-	else if(!userLogged(UID) || (strcmp(GID, "00") != 0 && !isUserSub(UID, GID))){
+	else if(!userLogged(UID)){
 		sprintf(buffer, "RGS NOK\n");
 		return;
 	}
@@ -676,8 +678,6 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 		
 		if((fp = fopen(fileDirectory1, "r")) == NULL){
 			sprintf(buffer, "ERR\n");
-			//free(fileDirectory1);
-			//free(name);
 			return;
 		}
 		else{
@@ -686,8 +686,6 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 			if(strcmp(name,GNAME)!=0){
 				sprintf(buffer, "RGS E_GNAME\n");
 				fclose(fp);
-				//free(fileDirectory1);
-				//free(name);
 				return;
 			}
 			
@@ -706,9 +704,6 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 	} 
 	else if (currentGroups==99) //when there's 99 groups registered already (directory is full)
 		sprintf(buffer, "RGS E_FULL");
-	
-	free(fileDirectory1);
-	free(name);
 }
 
 void comUnsubscribe(char* buffer, char* UID, char* GID){
