@@ -159,11 +159,10 @@ void fileSendTCP(char* filename, long fsize, int fd){
 
     toSend = fsize;
     while(toSend > 0) {
-        printf("zzzzz\n");
         n = fread(buffer, 1, 1024, fp);
         
         n = write(fd, buffer, n);
-        printf("enviado:%ldd",n);
+        printf("enviado:%ld\n",n);
         toSend-= n;
         bzero(buffer, 1024);
     }
@@ -213,16 +212,18 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
     response = NULL;
 
     while(n > 0){
-        response =(char*) realloc(response, sizeof(char) * ((i * 512) + 1));
+        response =(char*) realloc(response, sizeof(char) * ((i * 256) + 1));
 
         if(i == 1){
             memset(response, 0, sizeof(response));
         }
 
-        n=read(fd, response + nread, 512);
+        n=read(fd, response + nread, 256);
         
         nread += n;
         i++;
+
+        printf("%d\n", nread);
        
     }
 
@@ -592,8 +593,7 @@ void commandPost(char* command){
     int tsize;
     int msg = -1;
     long fsize = 0;
-    
-    printf("%s\n", command);
+
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
 
@@ -609,7 +609,6 @@ void commandPost(char* command){
     tsize = strlen(text);
 
     if(fsize == 0){
-        puts("fsize test");
         message = (char*) malloc(sizeof(char) * (19+tsize));// command size + text size
         memset(message, 0, sizeof(message));
         sprintf(message, "PST %s %02d %d %s\n", currentUID, currentGID, tsize, text);
@@ -664,6 +663,8 @@ void commandRetrieve(char* command){
     memset(status, 0, sizeof(status));
     memset(com, 0, sizeof(com));
 
+    printf("%s\n", response);
+
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Retrieve error\n");
@@ -715,8 +716,6 @@ void commandRetrieve(char* command){
                     memset(fileDir, 0, sizeof(fileDir));
 
                     responseAux += 2;
-
-                    //printf("1> %s\n", fileName); 
 
                     n = sscanf(responseAux, "%s %ld", fileName, &fsize);
 

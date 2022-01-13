@@ -96,7 +96,7 @@ bool verifyMID(char* MID,char* gid){
 	char* buffer;
 	if(verifyIDs(MID,4)){
 		buffer=(char*)malloc(sizeof(char)*12);
-		sprintf(buffer,"GROUPS/%s/%s",gid,MID);
+		sprintf(buffer,"GROUPS/%s/%s",gid,MID);// -------ver se é 0000
 		if(d=opendir(buffer)){
 			closedir(d);
 			free(buffer);
@@ -276,20 +276,25 @@ void sendTCP(char* buffer, int fd){
     free(buffer);
 }
 
-void sendFileTCP(FILE *fp, int fd, int fsize){
-    char buffer[fsize];
-    long toSend, n;
 
-    bzero(buffer, fsize); //just in case
+
+void sendFileTCP(FILE *fp, int fd, int fsize){
+	char* buffer = (char*) malloc(sizeof(char)*512);
+    long toSend, n1, n2;
+
+    bzero(buffer, 512); 
 
     toSend = fsize;
     while(toSend > 0) {
-        n = fread(buffer, 1, toSend, fp);
-        n = write(fd, buffer, n);
+        n1 = fread(buffer, 1, 512, fp);
+        //printf("enviado:%ld\n",n1);
+        while((n2 = write(fd, buffer, n1)) == -1){}
         
-		toSend-= n;
-        bzero(buffer, fsize);
+        toSend-= n2;
+        bzero(buffer, 512);
     }
+
+	free(buffer);
 }
 
 void getNumberOfGroups(){
@@ -951,13 +956,56 @@ void comPost(char* buffer, char* command){
 
 }
 
+int getMsgToSend(int m[], char* gid, int nMid){
+	int numberOfMSG = 0;
+	int lastMID;
+	char *fileDir = (char*) malloc(sizeof(char) * 80);
+	FILE* fp;
+
+	sprintf(fileDir, "GROUPS/%s/MSG", gid);
+
+	lastMID = getNumberEntInDir(fileDir);
+
+	while(nMid <= lastMID && numberOfMSG < 20 ){
+		memset(fileDir, 0, sizeof(fileDir));
+
+		sprintf(fileDir, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, nMid);
+		
+		if((fp = fopen(fileDir, "r")) == NULL){
+			nMid++;
+			continue;	
+		}
+
+		fclose(fp);
+
+		memset(fileDir, 0, sizeof(fileDir));
+
+		sprintf(fileDir, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, nMid);
+		
+		if((fp = fopen(fileDir, "r")) == NULL){
+			nMid++;
+			continue;	
+		}
+
+		fclose(fp);
+
+		m[numberOfMSG] = nMid;
+
+		nMid++;
+		numberOfMSG++;		
+	}
+
+	free(fileDir);
+	return numberOfMSG;
+}
 
 void comRetrieve(int uid, char* gid, char* mid, int fd){
-	int msgRead = 0, n, nMid = atoi(mid), lastMid = 4;
-	int tsize;
+	int msgRead = 0, n, nMid = atoi(mid);
+	int tsize, m[20];
 	long fsize;
 	char *bufferAux, *text, *fileName, *message;
 	char author[6];
+	char end[2] = "\n";
 	FILE* fp;
 
 	message = (char*) malloc(sizeof(char) * 15);
@@ -965,46 +1013,45 @@ void comRetrieve(int uid, char* gid, char* mid, int fd){
 
 	/*if(!verifyUID(uid) || !verifyGID(gid) || !verifyMID(mid) || !isUserSub(uid, gid)){
 		strcpy(message, "RRT NOK\n");
-		sendTCP(message);
+		sendTCP(message, fd);
 		return;
 	}*/
+
+	//printf("%s\n", command);
+
+	if((msgRead = getMsgToSend(m, gid, nMid)) == 0){
+		strcpy(message, "RRT EOF 0\n");
+		sendTCP(message, fd);
+		return;
+	}
 
 	fileName = (char* ) malloc(sizeof(char) * 25);
 	bufferAux = (char*) malloc(sizeof(char) * 80);
 
-	//printf("%s\n", command);
+	sprintf(message, "RRT OK %d", msgRead);
 
-	sprintf(message, "RRT OK %d", lastMid);
-
-	//printf("msg: %s\n", message);
+	printf("msg: %s\n", message);
 	sendTCP(message, fd);
 
-	while(msgRead < 20){
+	for(int i = 0; i < msgRead; i++){
 
 		message = (char*) malloc(sizeof(char) * 340);
 
 		memset(message, 0, sizeof(message));
 		memset(bufferAux, 0, sizeof(bufferAux));
 		memset(author, 0, sizeof(author));
+		memset(fileName, 0, sizeof(fileName));
 
-		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, nMid);
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, m[i]);
+
+		printf("m[i]: %d\n", m[i]);
 		
 		if((fp = fopen(bufferAux, "r")) != NULL){
 			fread(author, 1, 5, fp);
 			fclose(fp);
-		} 
-		else if(errno == ENOENT){
-			break;
-		}
-		else{
-			free(fileName);
-			free(bufferAux);
-			free(message);
-			return;
 		}
 
-
-		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, nMid);
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/T E X T.txt", gid, m[i]);
 		
 		if((fp = fopen(bufferAux, "r")) != NULL){
 
@@ -1018,28 +1065,17 @@ void comRetrieve(int uid, char* gid, char* mid, int fd){
 			fread(text, 1, tsize, fp);
 			fclose(fp);
 		}
-		else if(errno == ENOENT){
-			break;
-		}
-		else{
-			free(fileName);
-			free(bufferAux);
-			free(message);
-			return;
-		}
 
+		sprintf(message, " %04d %s %d %.*s", m[i], author, tsize, tsize, text);
 
-		sprintf(message, " %04d %s %d %s", nMid, author, tsize, text);
+		sprintf(bufferAux, "GROUPS/%s/MSG/%04d", gid, m[i]);
 
-		//printf("msg: %s\n", message);
-
-		sprintf(bufferAux, "GROUPS/%s/MSG/%04d", gid, nMid);
 
 		if(getNumberEntInDir(bufferAux) > 2){ //has other files to send
 			
 			strcpy(fileName,getFileName(bufferAux));
 
-			sprintf(bufferAux, "GROUPS/%s/MSG/%04d/%s", gid, nMid, fileName);
+			sprintf(bufferAux, "GROUPS/%s/MSG/%04d/%s", gid, m[i], fileName);
 			
 			if((fp = fopen(bufferAux, "r")) != NULL){
 				fseek(fp, 0, SEEK_END); 
@@ -1048,25 +1084,23 @@ void comRetrieve(int uid, char* gid, char* mid, int fd){
 
 				sprintf(message, "%s / %s %ld ", message, fileName, fsize);
 
+				printf("msg: %s<\n", message);
+
 				sendTCP(message, fd);
 				sendFileTCP(fp, fd, fsize);
 				fclose(fp);
 			}
-			else{
-				free(fileName);
-				free(bufferAux);
-				free(message);
-				return;
-			}
 		}
 		else{
+			printf("msg: %s<\n", message);
+
 			sendTCP(message, fd);
 		}
 
-		nMid++;
-		msgRead++;
 		free(text);
 	}
+
+	//sendTCP(end, fd);// send '\n'
 
 	free(fileName);
 	free(bufferAux);
