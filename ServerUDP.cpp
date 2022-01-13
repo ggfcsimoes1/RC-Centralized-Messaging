@@ -250,7 +250,7 @@ void receiveTCP(int fd){
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 512) + 1));
+		message =(char*) realloc(message, sizeof(char) * ((i * 64) + 1));
 
         if(i == 1){
 
@@ -258,7 +258,7 @@ void receiveTCP(int fd){
 			
         }
 
-		n=read(fd, message + nread , 512);
+		n=read(fd, message + nread , 64);
 
 		printf("%ld\n", nread);
 
@@ -314,19 +314,19 @@ void sendTCP(char* buffer, int fd){
 
 
 void sendFileTCP(FILE *fp, int fd, int fsize){
-	char* buffer = (char*) malloc(sizeof(char)*512);
+	char* buffer = (char*) malloc(sizeof(char)*2048);
     long toSend, n1, n2;
 
-    bzero(buffer, 512); 
+    bzero(buffer, 2048); 
 
     toSend = fsize;
     while(toSend > 0) {
-        n1 = fread(buffer, 1, 512, fp);
-        //printf("enviado:%ld\n",n1);
+        n1 = fread(buffer, 1, 2048, fp);
+        printf("enviado:%ld\n",n1);
         while((n2 = write(fd, buffer, n1)) == -1){}
         
         toSend-= n2;
-        bzero(buffer, 512);
+        bzero(buffer, 2048);
     }
 
 	free(buffer);
@@ -978,8 +978,8 @@ void comPost(char* buffer, char* command){
 	addMSG(fileDir, msg + 1, uid, text, n);
 	addExtraFile(fileDir, msg + 1, commandAux);
 
-	sprintf(buffer, "RPT %d\n", msg +1);
-
+	sprintf(buffer, "RPT %04d\n", msg +1);
+	printf("%s\n",buffer);
 }
 
 int getMsgToSend(int m[], char* gid, int nMid){
