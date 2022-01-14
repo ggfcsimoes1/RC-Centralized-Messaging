@@ -657,7 +657,7 @@ void comMyGroups(char* buffer,char* uid){ //mgl command
 	FILE *fp;
 	char* GIDname = (char*) malloc(sizeof(char) * 30);	
 	char* dirName = (char*) malloc(sizeof(char) * 60);
-	char* aux = (char*)malloc(sizeof(char)*2900); // maximum
+	char* aux = (char*)malloc(sizeof(char)*3500); // 100 * (Group Name Size + Group ID Size + Last Meesage ID Size), declared some more for leeway
 
 	if(!verifyUID(uid) || !userLogged(uid)){
 		sprintf(buffer, "RGM E_USR\n");	
@@ -1275,9 +1275,6 @@ int main(int argc, char *argv[]){
 				fcntl(newfd, F_SETFL, flags | O_NONBLOCK); //setting socket to non blocking
 
 				receiveTCP(newfd);
-
-				printf("parou aqui\n");
-				//fgets(wait, 10, stdin);
 				
 				close(newfd);
 				exit(0);

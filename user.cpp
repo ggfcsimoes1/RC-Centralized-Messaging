@@ -160,7 +160,6 @@ void fileSendTCP(char* filename, long fsize, int fd){ //sends a file with given 
         n = fread(buffer, 1, 1024, fp);
         
         while((n = write(fd, buffer, n)) == -1){}
-        printf("enviando:%ld Bytes\n",n);
         toSend-= n;
         bzero(buffer, 1024);
     }
@@ -224,8 +223,6 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
         nread += n;
         i++;
 
-        printf("receiving:%d Bytes\n", nread);
-       
     }
 
     if(n == -1){
