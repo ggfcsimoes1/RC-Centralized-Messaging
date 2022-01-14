@@ -147,8 +147,6 @@ char* clientSendUDP(char* message, int sizeString){ //sends & receives a message
 
 void fileSendTCP(char* filename, long fsize, int fd){ //sends a file with given fsize through a TCP socket
 
-    
-
     FILE* fp = fopen(filename, "rb");
     char* buffer = (char*) malloc(sizeof(char)*1024);
     long toSend, n;
@@ -635,8 +633,6 @@ void commandRetrieve(char* command){ //executes the retrieve command
 
     memset(status, 0, sizeof(status));
     memset(com, 0, sizeof(com));
-
-    printf("%s\n", response);
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Retrieve error\n");

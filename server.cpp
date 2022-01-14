@@ -212,6 +212,8 @@ void receiveTCP(int fd){ //receives data from TCP connection
             memset(message, 0, sizeof(message));
 			read(fd,message,4);
 
+			//Verify if the command received is a post and do seperately because of 
+			//the extra file
 			if(strcmp(message,"PST ")==0){
 				comPost(fd);
 				free(message);
@@ -743,7 +745,7 @@ void comUList(char* buffer,char* gid){ //ul command
 	memset(buffer, 0, sizeof(buffer));
 
 	if (d)	{
-		sprintf(GIDname,"GROUPS/%s/%s_name.txt", gid, gid);
+		sprintf(GIDname,"GROUPS/%s/%s_name.txt", gid, gid);// Get group name
 		fp=fopen(GIDname,"r");
 		if(fp!=NULL){
 			fscanf(fp,"%24s",GIDname);
@@ -755,7 +757,7 @@ void comUList(char* buffer,char* gid){ //ul command
 			return;
 		}
 
-		while ((dir = readdir(d)) != NULL)	{
+		while ((dir = readdir(d)) != NULL)	{//get users in the group
 			if(dir->d_name[0]=='.')
 				continue;
 			if(strlen(dir->d_name)!=9)
@@ -775,7 +777,7 @@ void comUList(char* buffer,char* gid){ //ul command
 		sprintf(buffer, "ERR\n");
 }
 
-char* getFileName(char* fileDir){ //auxiliary function that finds a file in a given fileDir
+char* getFileName(char* fileDir){ //auxiliary function that finds the extra file in a given fileDir
 	DIR *d;
 	struct dirent *dir;
 
@@ -850,6 +852,8 @@ void addExtraFile(int fd, char* fileDir, int msg){ //adds file fd to given fileD
 	n=sscanf(command + 1, "%s %ld",fileName, &fsize);
 
 	if(n==2){
+
+		printf(" %s %ld ", fileName, fsize);
 
 		sprintf(fileDir, "%s/%04d/%s", fileDir, msg, fileName);
 
@@ -926,7 +930,14 @@ void comPost(int fd){ //command post
 	msg = getNumberEntInDir(fileDir);
 
 	addMSG(fileDir, msg + 1, uid, text, tsize);  //creating the new file
+
+	if(verboseMode){
+		printf("PST %s %s %d %.*s", uid, gid, tsize, tsize, text);
+	}
+
 	addExtraFile(fd, fileDir, msg + 1); 
+
+	printf("\n");
 
 	sprintf(buffer, "RPT %04d\n", msg +1);
 	
@@ -1226,7 +1237,6 @@ int main(int argc, char *argv[]){
 	socklen_t addrlen;
 	fd_set rfds;
 	pid_t pid;
-	char wait[10];
 
 	memset(&action, 0, sizeof action);
 	action.sa_handler = SIG_IGN;
