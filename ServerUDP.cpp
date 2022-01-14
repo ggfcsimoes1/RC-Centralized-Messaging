@@ -944,14 +944,14 @@ void addExtraFile(int fd, char* fileDir, int msg){
 
 		fp = fopen(fileDir, "wb"); 
 
-		while(fsize > 0) {
+		while(fsize > 512) {
 			if((n = read(fd, buffer, 512)) != -1){
 
 				fwrite(buffer, 1, n, fp);
 				fsize -= n;
 			}
 		}
-		while(fsize > 512) {
+		while(fsize > 0) {
 			if((n = read(fd, buffer, fsize)) != -1){
 
 				fwrite(buffer, 1, n, fp);
