@@ -26,21 +26,19 @@ int currentGroups = 0; //number of groups in the directory
 bool verboseMode = false;
 
 
-bool isUserSub(char* uid, char* gid){ //checks if a user is subbed in the directory
+bool isUserSub(char* uid, char* gid){
 	FILE *fp;
-	char buffer[20];
-	//char* buffer=(char*) malloc(sizeof(char)*20);
+	char* buffer=(char*) malloc(sizeof(char)*20);
 	sprintf(buffer,"GROUPS/%s/%s.txt",gid,uid);
 	if(fp=fopen(buffer,"r")){
 		fclose(fp);
-		//free(buffer);
+		free(buffer);
 		return true;
 	}
-	//free(buffer);
+	free(buffer);
 	return false;
 }
-
-bool verifyIDs(char* ID, int len){ //verifies the validity of given ID
+bool verifyIDs(char* ID, int len){
 	int i=0;
 	int n=strlen(ID);
 	if(n!=len)
@@ -54,7 +52,7 @@ bool verifyIDs(char* ID, int len){ //verifies the validity of given ID
 	return true;
 }
 
-bool verifyPassword(char* pass){ //verifies validity of given pass
+bool verifyPassword(char* pass){
 	int i=0;
 	int n=strlen(pass);
 	if(n!= 8)
@@ -69,20 +67,19 @@ bool verifyPassword(char* pass){ //verifies validity of given pass
 }
 
 
-bool verifyUID(char* uid){ //verifies validity of given uid
-	//char* buffer;
-	char buffer[12];
+bool verifyUID(char* uid){
+	char* buffer;
 	DIR *d;
 	if(verifyIDs(uid,5)){
-		//buffer=(char*)malloc(sizeof(char)*12);
+		buffer=(char*)malloc(sizeof(char)*12);
 		sprintf(buffer,"USERS/%s",uid);
 		if(d=opendir(buffer)){
 			closedir(d);
-			//free(buffer);
+			free(buffer);
 			return true;
 		}	
 		else{
-			//free(buffer);
+			free(buffer);
 			return false;
 		}
 			
@@ -91,41 +88,38 @@ bool verifyUID(char* uid){ //verifies validity of given uid
 		return false;
 	
 }
-bool verifyGID(char* gid){ //verifies validity of given gid
-	//char* buffer;
-	char buffer[10];
+bool verifyGID(char* gid){
+	char* buffer;
 	DIR *d;
 	if(verifyIDs(gid,2)){
-		//buffer=(char*)malloc(sizeof(char)*10);
+		buffer=(char*)malloc(sizeof(char)*10);
 		sprintf(buffer,"GROUPS/%s",gid);
 		if(d=opendir(buffer)){
 			closedir(d);
-			//free(buffer);
+			free(buffer);
 			return true;
 		}
 		else{
-			//free(buffer);
+			free(buffer);
 			return false;
 		}
 	}
 	else
 		return false;
 }
-bool verifyMID(char* MID,char* gid){ //verifies validity of given MID
+bool verifyMID(char* MID,char* gid){
 	DIR *d;
-	//char* buffer;
-	char buffer[12];
+	char* buffer;
 	if(verifyIDs(MID,4)){
-		//buffer=(char*)malloc(sizeof(char)*12);
-		
+		buffer=(char*)malloc(sizeof(char)*12);
 		sprintf(buffer,"GROUPS/%s/MSG/%s",gid,MID);
 		if(d=opendir(buffer)){
 			closedir(d);
-			//free(buffer);
+			free(buffer);
 			return true;
 		}
 		else{
-			//free(buffer);
+			free(buffer);
 			return false;
 		}
 			
