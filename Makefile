@@ -9,8 +9,8 @@ DS: DS.o
 
 user: user.o
 
-DS.o: ServerUDP.cpp ServerUDP.hpp
-	$(CC) $(CFLAGS) -o DS.o -c ServerUDP.cpp
+DS.o: server.cpp server.hpp
+	$(CC) $(CFLAGS) -o DS.o -c server.cpp
 
 user.o: user.cpp user.hpp
 	$(CC) $(CFLAGS) -o user.o -c user.cpp
