@@ -927,6 +927,7 @@ void addExtraFile(int fd, char* fileDir, int msg){
 			}
 			
 			if(i == 3){
+				command[nread] = '\0';
 				break;
 			}
 			nread += n;
@@ -945,6 +946,13 @@ void addExtraFile(int fd, char* fileDir, int msg){
 
 		while(fsize > 0) {
 			if((n = read(fd, buffer, 512)) != -1){
+
+				fwrite(buffer, 1, n, fp);
+				fsize -= n;
+			}
+		}
+		while(fsize > 512) {
+			if((n = read(fd, buffer, fsize)) != -1){
 
 				fwrite(buffer, 1, n, fp);
 				fsize -= n;
