@@ -13,6 +13,7 @@ void comRegister(char* command, int UID, char* pass);
 void comUnregister(char* buffer, int UID, char* pass);
 void comLogin(char* buffer, int UID, char* pass);
 void comLogout(char* buffer, int UID, char* pass);
+void comPost(int fd);
 void comExit();
 char* processCommands(char* command, int fd);
 void comGroups();

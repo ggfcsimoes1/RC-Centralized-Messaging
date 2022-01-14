@@ -24,7 +24,7 @@ char* DSport;
 int TimerON(int sd){
     struct timeval tmout;
     memset((char *)&tmout,0,sizeof(tmout)); /* clear time structure */
-    tmout.tv_sec=15; /* Wait for 15 sec for a reply from server. */
+    tmout.tv_sec=15; /* Wait for 15 sec for a reply from the server. */
     return(setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *)&tmout,sizeof(struct timeval)));
 }
 
@@ -36,15 +36,15 @@ int TimerOFF(int sd){
 
 
 
-void verifyArguments(int numArgs, char *args[]){
-    if (numArgs != 1 && numArgs != 3 && numArgs != 5){ //-n e -p sempre como argumento?
+void verifyArguments(int numArgs, char *args[]){ //verifies the validity of the flags given upon running the program 
+    if (numArgs != 1 && numArgs != 3 && numArgs != 5){
         fprintf(stderr,"Invalid number of Arguments!");
         exit(EXIT_FAILURE);
     }
     return; //perguntar se precisamos de verificar mais
 }
 
-void getDefaultIP(){
+void getDefaultIP(){ //gets the default hostname, if none is specified upon running the program
 
     struct addrinfo hints,*res,*p;
     int errcode;
@@ -68,41 +68,37 @@ void getDefaultIP(){
     else{
         for(p=res;p!=NULL;p=p->ai_next){
             addr=&((struct sockaddr_in *)p->ai_addr)->sin_addr;
-            strcpy(DSIP, inet_ntop(p->ai_family,addr,buffer,sizeof buffer));  //(long unsigned int)ntohl(addr->s_addr));;
+            strcpy(DSIP, inet_ntop(p->ai_family,addr,buffer,sizeof buffer)); //places hostname in global variable DSIP
         }
-
-        
-        //DSIP = string(DSIP);
         freeaddrinfo(res);
     }
 }
 
-void getDefaultPort(){
-    int port= DEFAULT_PORT + GROUP_NUMBER;
-    sprintf(DSport, "%d", port);
-    
+void getDefaultPort(){ //gets the default hostname, if none is specified upon running the program
+    int port = DEFAULT_PORT + GROUP_NUMBER; //58000 + Group Number
+    sprintf(DSport, "%d", port);   
 }
 
 
-void parseArgs(int numArgs,char *args[]){
-    if (numArgs == 1){
+void parseArgs(int numArgs,char *args[]){ //parses the arguments given upon running the program
+    if (numArgs == 1){ //no flags given
         getDefaultIP();
         getDefaultPort();
     }
     for(int i=1;i<numArgs;i+=2){
-        if(strcmp(args[i],"-n") == 0){
+        if(strcmp(args[i],"-n") == 0){ // if -n was given
             strcpy(DSIP, args[i+1]);
             if(numArgs < 5)
                 getDefaultPort();
         }
-        else if(strcmp(args[i],"-p") == 0){
+        else if(strcmp(args[i],"-p") == 0){ //if -p was given
             strcpy(DSport ,args[i+1]);
             if(numArgs < 5)
                 getDefaultIP();
         }
     }
 }
-char* clientSendUDP(char* message, int sizeString){
+char* clientSendUDP(char* message, int sizeString){ //sends & receives a message with given sizeString through a UDP socket
     
     int fd,errcode;
     ssize_t n;
@@ -111,46 +107,48 @@ char* clientSendUDP(char* message, int sizeString){
     struct sockaddr_in addr;
     char* response;
     
-    fd=socket(AF_INET,SOCK_DGRAM,0);
-    if(fd==-1)
-        exit(1);
+    
+    if((fd=socket(AF_INET,SOCK_DGRAM,0)) == -1) 
+        exit(EXIT_FAILURE); //socket creation error
+
+
     memset(&hints,0,sizeof hints);
     hints.ai_family=AF_INET;
     hints.ai_socktype=SOCK_DGRAM;
 
-    errcode=getaddrinfo(DSIP,DSport,&hints,&res);
-    if(errcode!=0)
-        exit(1);
+    if((errcode=getaddrinfo(DSIP,DSport,&hints,&res)) != 0)
+        exit(EXIT_FAILURE); //address info error
     
-    n=sendto(fd,message,strlen(message),0,res->ai_addr,res->ai_addrlen);
-    if(n==-1)
-        exit(1);
+    if((n=sendto(fd,message,strlen(message),0,res->ai_addr,res->ai_addrlen))==-1) //sends messages to server
+        exit(EXIT_FAILURE); //error sending messages
+
     addrlen=sizeof(addr);
 
     response = (char*) malloc(sizeof(char)* sizeString);
-
     memset(response, 0, sizeof(response));
 
-    TimerON(fd);
-    n=recvfrom(fd,response,sizeString,0,(struct sockaddr*)&addr,&addrlen); //recebe mensagens do servidor
+    TimerON(fd); //starts a 15 sec timer
+    n=recvfrom(fd,response,sizeString,0,(struct sockaddr*)&addr,&addrlen); //receives messages from server
 
-    //Remover lixo no final da resposta
-    sscanf(response, "%[^\n]", response);
+    sscanf(response, "%[^\n]", response); //assures that the response buffer is properly formatted
     strcat(response, "\n");
 
     if(errno == EAGAIN){  
         printf("Timeout occured!\n");
     }
-    else if(n==-1)
-        exit(1);
-
+    else if(n == -1)
+        exit(EXIT_FAILURE);
     TimerOFF(fd);
+
     freeaddrinfo(res);
     close(fd);
     return response;
 }
 
-void fileSendTCP(char* filename, long fsize, int fd){
+void fileSendTCP(char* filename, long fsize, int fd){ //sends a file with given fsize through a TCP socket
+
+    //nao toquei nisto just in case
+
     FILE* fp = fopen(filename, "rb");
     char* buffer = (char*) malloc(sizeof(char)*1024);
     long toSend, n;
@@ -171,6 +169,9 @@ void fileSendTCP(char* filename, long fsize, int fd){
 }
 
 char* clientSendTCP(char* message, char* fileName, long fsize){
+
+    //nao toquei nisto just in cases
+
     int fd, errcode;
     ssize_t n = 1;
     socklen_t addrlen;
@@ -237,14 +238,13 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
     return response;
 }
 
-char* verifyFile(char fileName[], long* fsize){
+char* verifyFile(char fileName[], long* fsize){ //verifies a file with given fileName & size fsize, returning the file's contents upon success
+    
     FILE *fp;
-     
     int nameSize = strlen(fileName);
     char* data;
 
-    //Verify file name
-    for(int i = 0; i < nameSize; i++){
+    for(int i = 0; i < nameSize; i++){ //Verify every char of fileName
         if(!isalpha(fileName[i]) && !isdigit(fileName[i]) && fileName[i] != '_' && fileName[i] != '-' && fileName[i] != '.'){
             printf("Invalid file name\n");
             return NULL;
@@ -254,7 +254,7 @@ char* verifyFile(char fileName[], long* fsize){
     //read file
     if((fp = fopen(fileName, "r")) != NULL){
         
-        fseek(fp, 0, SEEK_END);
+        fseek(fp, 0, SEEK_END); //getting file size (talvez usar fstat, como o stor disse)
         *fsize = ftell(fp); 
         fseek(fp, 0, SEEK_SET); 
 
@@ -264,17 +264,9 @@ char* verifyFile(char fileName[], long* fsize){
             printf("Reading error\n");
             return NULL;
         }
-
-        /*FILE* fp2;
-
-        fp2 = fopen("output.jpg", "wb"); 
-		fwrite(data,1,*fsize,fp2);
-
-		fclose(fp2);*/
-        
         return data;
-
     }
+
     else if (errno == ENOENT){
         printf("No file named %s\n", fileName);
         return NULL;
@@ -285,7 +277,7 @@ char* verifyFile(char fileName[], long* fsize){
     }
 }
 
-void commandRegister(char* message){
+void commandRegister(char* message){ //executes the register command
     char* response = clientSendUDP(message,SIZE_STRING);
 
     if(strcmp("ERR\n",response)==0)
@@ -306,7 +298,7 @@ void commandRegister(char* message){
     free(response);
 }
 
-void commandUnregister(char* message, char* arg1){
+void commandUnregister(char* message, char* UID){ //executes the unregister command
     char* response = clientSendUDP(message,SIZE_STRING);
 
     if(strcmp("ERR\n",response)==0)
@@ -314,12 +306,9 @@ void commandUnregister(char* message, char* arg1){
 
     else if(strcmp("RUN OK\n",response)==0) { 
         printf("Accepted Un-Registration!\n");
-
-
-        if(isLoggedIn && strcmp(currentUID,arg1)==0){
+        if(isLoggedIn && strcmp(currentUID,UID)==0){ //locally logs out the user
             isLoggedIn=false;
         }
-
     }
     else if(strcmp("RUN NOK\n",response)==0)
         printf("Not Accepted Un-Registration!\n"); 
@@ -327,22 +316,20 @@ void commandUnregister(char* message, char* arg1){
         printf("Unexpected error\n");
     
     free(response);
-
 }
 
-void commandLogin(char* message, char* UID, char* pass){
+void commandLogin(char* message, char* UID, char* pass){ //executes the login command
     char* response = clientSendUDP(message,SIZE_STRING);
+
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Login error\n");
     }
-
-    else if(strcmp("RLO OK\n",response)==0){  
+    else if(strcmp("RLO OK\n",response)==0){  //locally updates the current UID & password
         printf("Accepted Login!\n"); 
         strcpy(currentUID, UID);
         strcpy(currentPass, pass);
         isLoggedIn = true;
     }
-
     else if(strcmp("RLO NOK\n",response)==0){    
         printf("Not Accepted Login!\n");
     }
@@ -352,19 +339,18 @@ void commandLogin(char* message, char* UID, char* pass){
     free(response);
 }
 
-void commandLogout(char* message){
+void commandLogout(char* message){ //executes the logout command
     char* response = clientSendUDP(message,SIZE_STRING);
+
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Logout error\n");
     }
-
-    else if(strcmp("ROU OK\n",response)==0){  
+    else if(strcmp("ROU OK\n",response)==0){  //locally clears the current UID & password
         printf("Accepted Logout!\n");
         strcpy(currentUID, "");
         strcpy(currentPass, ""); 
         isLoggedIn = false;
     }
-
     else if(strcmp("ROU NOK\n",response)==0){    
         printf("Not Accepted Logout!\n");
     }
@@ -374,17 +360,17 @@ void commandLogout(char* message){
     free(response);
 }
 
-void commandShowUID(){
-    if(isLoggedIn)
+void commandShowUID(){ //executes the showuid command
+    if(isLoggedIn) //locally checks if the user is logged in 
         printf("User ID: %s \n", currentUID);
     else 
         printf("Not logged in!\n");   
 }
 
-void commandGroups(char* message){
-    char* response = clientSendUDP(message,10000);
+void commandGroups(char* message){ //executes the groups command
+    char* response = clientSendUDP(message,10000); //tamanho?
     char com[4], gname[24];
-    int ng, n, gid, mid;
+    int numGroups, n, gid, mid;
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Group error\n");
@@ -392,21 +378,22 @@ void commandGroups(char* message){
         return;
     }
     
-    n=sscanf(response,"%s %d %[^\n]",com, &ng, response); 
-    if(n < 3){
+    n=sscanf(response,"%s %d %[^\n]",com, &numGroups, response); 
+
+    if(n < 3){ //if the number of arguments read in incorrect
         printf("Unexpected error\n");
         free(response);
         return;
     }
-    if(strcmp(com, "RGL")==0 && ng == 0){
+    if(strcmp(com, "RGL")==0 && numGroups == 0){ //no groups to be shown
         printf("No Groups Available!\n");
     }
-    else if(strcmp(com, "RGL")==0 && ng > 0 && ng <= 99){
+    else if(strcmp(com, "RGL")==0 && numGroups > 0 && numGroups <= 99){ //there are groups to be shown
         printf("Available Groups:\n");
-        while(ng != 0){
+        while(numGroups != 0){
             sscanf(response,"%d %s %d %[^\n]",&gid, gname, &mid,response);
             printf("> %02d: %s [msg: %04d]\n", gid, gname, mid);
-            ng--;
+            numGroups--;
         }
     }
     else{
@@ -415,8 +402,8 @@ void commandGroups(char* message){
     free(response);
 }
 
-void commandSubscribe(char* message){
-    char* GID = (char*) malloc(sizeof(char)* 3);
+void commandSubscribe(char* message){ //executes the subscribe command
+    char* GID = (char*) malloc(sizeof(char)* 3); //tirar malloc?
     
     char* response = clientSendUDP(message,SIZE_STRING);
     
@@ -426,7 +413,7 @@ void commandSubscribe(char* message){
     else if(strcmp("RGS OK\n", response) == 0){
         printf("Accepted Subscription!\n");
     }
-    else if(sscanf(response, "RGS NEW %s", GID) == 1){
+    else if(sscanf(response, "RGS NEW %s", GID) == 1){ //if a new group was created, displays it to the user
         printf("Accepted Subscription!\nGID: %s\n", GID);
     }
     else if(strcmp("RGS E_USR\n",response) == 0){    
@@ -450,8 +437,8 @@ void commandSubscribe(char* message){
     free(response);
 }
 
-void commandUnsubscribe(char* message){
-    char* GID = (char*) malloc(sizeof(char)* 3);
+void commandUnsubscribe(char* message){ //executes the unsubscribe command
+    //char* GID = (char*) malloc(sizeof(char)* 3); fuga de memoria
     char* response = clientSendUDP(message,SIZE_STRING);
 
     if(strcmp("ERR\n",response)==0)
@@ -476,29 +463,29 @@ void commandUnsubscribe(char* message){
     
 }
 
-void commandSelect(char* GID){
-    if (atoi(GID) > 0 && atoi(GID) < 100){
-        currentGID = atoi(GID);
+void commandSelect(char* GID){ //executes the select command
+    if (atoi(GID) > 0 && atoi(GID) < 100){ //locally updates the GID if it's valid
+        currentGID = atoi(GID); //only updates the global variable if everything is correct
         printf("Selected Group ID: %d \n", currentGID);
     }
     else 
         printf("Invalid Group ID!\n");
 }
 
-void commandShowGID(){
-    if (currentGID != 0){;
+void commandShowGID(){ //executes the showgid command
+    if (currentGID != 0){ //if the GID is valid, display it
         printf("Current Group ID: %d \n", currentGID);
     }
     else 
         printf("No group selected!\n");
 }
 
-void commandMyGroups(char* message){
+void commandMyGroups(char* message){ //executes the mgl command
     char* response;
-    char com[4], gname[24];
-    int ng, n, gid, mid;
+    char com[4], groupName[24];
+    int numGroups, n, gid, mid;
 
-    response = clientSendUDP(message,10000);
+    response = clientSendUDP(message,10000); //tamanho?
         
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"My_Groups error\n");
@@ -511,23 +498,23 @@ void commandMyGroups(char* message){
         return;
     }
     
-    n=sscanf(response,"%s %d %[^\n]",com, &ng, response); 
+    n=sscanf(response,"%s %d %[^\n]",com, &numGroups, response); 
     if(n < 2){
         printf("Unexpected error\n");
         free(response);
         return;
     }
 
-    if(strcmp(com, "RGM")==0 && ng == 0){
+    if(strcmp(com, "RGM")==0 && numGroups == 0){
         printf("No Groups Subscribed To!\n");
     }
-    else if(strcmp(com, "RGM")==0 && ng > 0 && ng <= 99){
+    else if(strcmp(com, "RGM")==0 && numGroups > 0 && numGroups <= 99){ //if everything is valid, displays the groups which the user is subscribed to 
         printf("My Groups:\n");
         
-        while(ng != 0){
-            sscanf(response,"%d %s %d %[^\n]",&gid, gname, &mid,response);
-            printf("> %02d: %s [msg: %04d]\n", gid, gname, mid);
-            ng--;
+        while(numGroups != 0){
+            sscanf(response,"%d %s %d %[^\n]",&gid, groupName, &mid,response);
+            printf("> %02d: %s [msg: %04d]\n", gid, groupName, mid);
+            numGroups--;
         }
     }
     else{
@@ -537,10 +524,10 @@ void commandMyGroups(char* message){
     free(response);
 }
 
-void commandUList(char* message){
+void commandUList(char* message){ //executes the ul command
     char* response = clientSendTCP(message, NULL, 0);
     char* users = (char *) malloc(sizeof(char) * strlen(response));
-    char com[4], gname[24], status[4];
+    char com[4], groupName[24], status[4];
     int n, uid;
 
 
@@ -551,28 +538,25 @@ void commandUList(char* message){
         return;
     }
 
-    n=sscanf(response,"%s %s %s %[^\n]",com, status, gname, users);
+    n=sscanf(response,"%s %s %s %[^\n]",com, status, groupName, users);
 
     if(n < 2){
         printf("Unexpected error\n");
         free(response);
         free(users);
         return;
-    }
-    
-    if(strcmp(com, "RUL")==0 && strcmp(status, "NOK")== 0){
+    } 
+    if(strcmp(com, "RUL") == 0 && strcmp(status, "NOK") == 0){
         printf("Non Existing Group!\n");
     }
-    else if(strcmp(com, "RUL")==0 && strcmp(status, "OK")==0){
+    else if(strcmp(com, "RUL") == 0 && strcmp(status, "OK") == 0){
         
-        if(strcmp(users, "")==0){
+        if(strcmp(users, "") == 0){
             printf("No users subscribed!\n");
         }
         else{
-            printf("Subscribed users in %s:\n", gname);
-
-            strcat(users, " ~");// Stop while
-
+            printf("Subscribed users in %s:\n", groupName);
+            strcat(users, " ~"); // the tilde is used as a signal to stop the following while
             while(strcmp(users, "~")!= 0){
                 sscanf(users,"%d %[^\n]",&uid, users);
                 printf("> %05d\n", uid);
@@ -582,39 +566,35 @@ void commandUList(char* message){
     else{
         printf("Unexpected error\n");
     }
-
     free(users);
     free(response);
 }
 
-void commandPost(char* command){
+void commandPost(char* command){ //executes the post command
     char* response, *message, *data;
-    char com[4], text[242], fileName[24];
+    char com[4], text[242], fileName[24]; //tamanho user
     int tsize;
     int msg = -1;
     long fsize = 0;
 
     int n = sscanf(command, "%s \"%[^\"]\" %s", com, text, fileName);
 
-
     if(n < 2){
         printf("Expected post \"text\" or post \"text\" file!\n");
         return;
     }
-    
-    if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){//--------------mudar isto
-        return; //isto faz o que mesmo ??
+    if(strcmp(fileName, "")!=0 && (data = verifyFile(fileName, &fsize)) == NULL){ //if a fileName was given but its contents are unreadable
+        return;
     }
 
-    tsize = strlen(text);
+    tsize = strlen(text); //getting the text size
 
-    if(fsize == 0){
+    if(fsize == 0){ //if no file was sent
         message = (char*) malloc(sizeof(char) * (19+tsize));// command size + text size
         memset(message, 0, sizeof(message));
         sprintf(message, "PST %s %02d %d %s\n", currentUID, currentGID, tsize, text);
         response = clientSendTCP(message, NULL, 0);
-
-    } else {
+    } else { //file was sent
         message = (char*) malloc(sizeof(char) * (18+tsize+strlen(fileName)+13));// command size + text size + fileName size + length of fSize
         memset(message, 0, sizeof(message));
         sprintf(message, "PST %s %02d %d %s %s %ld ", currentUID, currentGID, tsize, text, fileName, fsize);
@@ -623,23 +603,19 @@ void commandPost(char* command){
     
     sscanf(response,"%s %d\n",com,&msg);
 
-    if(strcmp(response,"RPT NOK")==0){
+    if(strcmp(response,"RPT NOK")==0)
         printf("Unsuccessful Post\n");
-
-    }
-    else if(strcmp(com,"RPT")==0 && msg!=-1){
-        printf("Messages successfully posted! (MID: %d)\n", msg);
-    }
-    else if(strcmp(response,"ERR")==0){
+    else if(strcmp(com,"RPT") == 0 && msg != -1)
+        printf("Messages successfully posted! (MID: %d)\n", msg); //display message ID upon success
+    else if(strcmp(response,"ERR")==0)
         printf("POST error\n");
-    }
     else
         printf("Unexpected error\n");
 
     free(message);
 }
 
-int getDigits(int m){
+int getDigits(int m){ //auxiliary function that gets the length in digits of a certain integer m
     int d = 0;
 
     while(m > 0){
@@ -650,7 +626,7 @@ int getDigits(int m){
     return d;
 }
 
-void commandRetrieve(char* command){
+void commandRetrieve(char* command){ //executes the retrieve command
     char* response = clientSendTCP(command, NULL, 0);
     char* responseAux, *fileDir;
     char com[4], status[4], mid[5], uid[6], fileName[25];
@@ -658,13 +634,12 @@ void commandRetrieve(char* command){
     long fsize;
     FILE* fp;
 
-    responseAux = response;
+    responseAux = response; //responseAux will be the pointer that we will use in order to read the message sent by the server
 
     memset(status, 0, sizeof(status));
     memset(com, 0, sizeof(com));
 
     printf("%s\n", response);
-
 
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"Retrieve error\n");
@@ -673,7 +648,8 @@ void commandRetrieve(char* command){
     }
 
     n = sscanf(response, "%s %s %d", com, status, &numMSG);
-    if(n < 2){
+
+    if(n < 2){ //incorrect number of arguments
         printf("Unexpected error\n");
         free(response);
         return;
@@ -687,8 +663,6 @@ void commandRetrieve(char* command){
             while(numMSG > 0){
                 memset(mid, 0, sizeof(mid));
                 memset(uid, 0, sizeof(uid));
-
-                //MID UID Tsize text[ / Fname Fsize data]
                 
                 n = sscanf(responseAux, "%s %s %d", mid, uid, &tsize);
 
@@ -697,7 +671,6 @@ void commandRetrieve(char* command){
                     free(response);
                     return;
                 }
-
 
                 responseAux += (12 + getDigits(tsize));
                 printf("%s(User: %s) > %.*s\n", mid, uid, tsize, responseAux);
@@ -746,24 +719,20 @@ void commandRetrieve(char* command){
                         break;
                     }
 
-
                     responseAux += 1;
                     free(fileDir);
                 }
                 numMSG--;
             }
         }
-        else if(strcmp(status, "NOK") == 0){
-            printf("Retrieve request error\n");
-        }
-        else if(strcmp(status, "EOF") == 0){
+        else if(strcmp(status, "NOK") == 0)
+            printf("Retrieve request error\n");    
+        else if(strcmp(status, "EOF") == 0)
             printf("No messages to be printed!\n");
-        }
     } 
-    else{
+    else
         printf("Unexpected Error\n");
-    }
-
+    
     free(response);
 }
 

@@ -242,20 +242,25 @@ void receiveTCP(int fd){
     int errcode, i = 1;
     ssize_t n;
 	long nread = 0;
-    //char buffer[11];
     char *message;
-
-	//FILE* fp2;
 
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 128) + 1));
+		message =(char*) realloc(message, sizeof(char) * ((i * 128) + 5));
 
         if(i == 1){
 
             memset(message, 0, sizeof(message));
-			
+			read(fd,message,4);
+
+			if(strcmp(message,"PST ")==0){
+				comPost(fd);
+				free(message);
+				return;
+			}
+
+			nread+=4;
         }
 
 		n=read(fd, message + nread , 128);
@@ -272,16 +277,6 @@ void receiveTCP(int fd){
 		}
     }
 	message[nread]='\0'; //tem lixo no fim
-	
-
-	//printf("%ld\n", nread);
-	
-	//fwrite(message,1,nread,fp2);
- 
-	//fclose(fp2);
-
-	
-	
 
     processCommands(message, fd);
 	
@@ -291,8 +286,6 @@ void receiveTCP(int fd){
 void sendTCP(char* buffer, int fd){
 	ssize_t n, toWrite;
 	char *ptr;
-
-	
 
 	ptr = buffer;
     toWrite = strlen(buffer);
@@ -316,11 +309,7 @@ void sendFileTCP(FILE *fp, int fd, int fsize){
 	char buffer[2048];
 	char*ptr;
     long toSend, n1, n2 = 0,n3;
-	/*FILE* fp1;
-	fp1= fopen("Rome.jpg", "w+");*/
 
-
-    
 
     toSend = fsize;
     while(toSend > 0) {
@@ -920,78 +909,116 @@ void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
 	fclose(fp);
 }
 
-void addExtraFile(char* fileDir, int msg, char* command){
-	int n;
-	long f;
-	char fileName[25], fsize[10];
+void addExtraFile(int fd, char* fileDir, int msg){
+	int n, nread = 0, i = 0;
+	long fsize;
+	char fileName[25], command[100], buffer[512];
 	FILE* fp;
 
-	memset(fsize, 0, sizeof(fsize));
+	memset(command, 0, sizeof(command));
+
+	while (1){
+		if((n = read(fd, command + nread, 1)) != -1){
+			if(command[nread] == '\n'){
+				return;
+			}
+			if(command[nread] == ' '){
+				i++;
+			}
+			
+			if(i == 3){
+				break;
+			}
+			nread += n;
+		}
+	}
+
 	memset(fileName, 0, sizeof(fileName));
 
-	n=sscanf(command, "%s %s",fileName, fsize);
+	n=sscanf(command + 1, "%s %ld",fileName, &fsize);
 
 	if(n==2){
-		f = atoi(fsize);
-		command += strlen(fileName) + strlen(fsize) + 2;
 
 		sprintf(fileDir, "%s/%04d/%s", fileDir, msg, fileName);
 
-        fp = fopen(fileDir, "wb"); 
-		fwrite(command,1,f,fp);
+		fp = fopen(fileDir, "wb"); 
+
+		while(fsize > 0) {
+			if((n = read(fd, buffer, 512)) != -1){
+
+				fwrite(buffer, 1, n, fp);
+				fsize -= n;
+			}
+		}
 
 		fclose(fp);
 	}
 }
 
-void comPost(char* buffer, char* command){
-	char uid[6], gid[3], tsize[4];
-	int n, msg;
-	char *fileDir, *text, *commandAux;
+void comPost(int fd){
+	char uid[6], gid[3];
+	char command[100], text[241], fileDir[50];
+	char *buffer = (char*) malloc(sizeof(char) * 50);
+	int n, msg, nread = 0, i = 0, tsize;
 	
-	commandAux = command;
-
-	memset(tsize, 0, sizeof(tsize));
+	memset(command, 0, sizeof(command));
+	memset(text, 0, sizeof(text));
+	memset(buffer, 0, sizeof(buffer));
 	memset(uid, 0, sizeof(uid));
 	memset(gid, 0, sizeof(gid));
-	commandAux += 4;
 
-	n=sscanf(commandAux, "%s %s %s", uid, gid, tsize);//--------------------fix response
+	while (1){
+		if((n = read(fd, command + nread, 1)) != -1){
+			if(command[nread] == ' '){
+				i++;
+			}
+			
+			if(i == 3){
+				break;
+			}
+			nread += n;
+		}
+	}
+
+	n = sscanf(command, "%s %s %d", uid, gid, &tsize);
+
+	printf("%s %s %d\n", uid, gid, tsize);
 
 	if(n < 3){
 		sprintf(buffer, "ERR\n");
+		sendTCP(buffer, fd);
 		return;
 	}
 
 	if(!verifyUID(uid) || !verifyGID(gid) || !userLogged(uid)|| !isUserSub(uid, gid)){
 		sprintf(buffer, "RPT NOK\n");
+		sendTCP(buffer, fd);
 		return;
 	}
 
+	nread=0;
+	i = tsize;
+
+	while(i > 0){
+		if((n = read(fd, text + nread, i)) != -1){
+			i -= n;
+			nread += n;
+		}
+	}
+
+	printf("%s<\n", text);
 	
-	if((n = atoi(tsize)) == 0){
-		sprintf(buffer, "ERR\n");
-		return;
-	}
-
-	text= (char*) malloc(sizeof(char)*(n + 1));
-
-	memset(text, 0, sizeof(text));
-
-	commandAux += (10 + strlen(tsize));
-	strncpy(text, commandAux, n);
-	commandAux += (n + 1);
-
-	fileDir = (char*) malloc(sizeof(char) * 43);
 	sprintf(fileDir, "GROUPS/%s/MSG", gid);
 
 	msg = getNumberEntInDir(fileDir);
 
-	addMSG(fileDir, msg + 1, uid, text, n);
-	addExtraFile(fileDir, msg + 1, commandAux);
+	addMSG(fileDir, msg + 1, uid, text, tsize);
+	addExtraFile(fd, fileDir, msg + 1);
 
 	sprintf(buffer, "RPT %04d\n", msg +1);
 	printf("%s\n",buffer);
+
+	sendTCP(buffer, fd);
 }
 
 int getMsgToSend(int m[], char* gid, int nMid){
@@ -1261,16 +1288,6 @@ char* processCommands(char* command, int fd){
 			sprintf(buffer, "ERR\n");
 
 		sendTCP(buffer, fd);
-		free(com);
-		free(arg1);
-		free(arg2);
-		free(arg3);
-		return NULL;
-	}
-	else if(strcmp(com, "PST")==0){
-		comPost(buffer, command);
-		sendTCP(buffer, fd);
-
 		free(com);
 		free(arg1);
 		free(arg2);
