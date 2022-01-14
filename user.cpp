@@ -41,7 +41,7 @@ void verifyArguments(int numArgs, char *args[]){ //verifies the validity of the 
         fprintf(stderr,"Invalid number of Arguments!");
         exit(EXIT_FAILURE);
     }
-    return; //perguntar se precisamos de verificar mais
+    return; 
 }
 
 void getDefaultIP(){ //gets the default hostname, if none is specified upon running the program
@@ -147,20 +147,20 @@ char* clientSendUDP(char* message, int sizeString){ //sends & receives a message
 
 void fileSendTCP(char* filename, long fsize, int fd){ //sends a file with given fsize through a TCP socket
 
-    //nao toquei nisto just in case
+    
 
     FILE* fp = fopen(filename, "rb");
     char* buffer = (char*) malloc(sizeof(char)*1024);
     long toSend, n;
 
-    bzero(buffer, 1024); //just in case
+    bzero(buffer, 1024); 
 
     toSend = fsize;
     while(toSend > 0) {
         n = fread(buffer, 1, 1024, fp);
         
         while((n = write(fd, buffer, n)) == -1){}
-        printf("enviado:%ld\n",n);
+        printf("enviando:%ld Bytes\n",n);
         toSend-= n;
         bzero(buffer, 1024);
     }
@@ -170,7 +170,7 @@ void fileSendTCP(char* filename, long fsize, int fd){ //sends a file with given 
 
 char* clientSendTCP(char* message, char* fileName, long fsize){
 
-    //nao toquei nisto just in cases
+    
 
     int fd, errcode;
     ssize_t n = 1;
@@ -212,7 +212,7 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
     
     response = NULL;
 
-    while(n > 0){
+    while(n > 0){ //sends a file if asked
         response =(char*) realloc(response, sizeof(char) * ((i * 256) + 1));
 
         if(i == 1){
@@ -224,7 +224,7 @@ char* clientSendTCP(char* message, char* fileName, long fsize){
         nread += n;
         i++;
 
-        printf("%d\n", nread);
+        printf("receiving:%d Bytes\n", nread);
        
     }
 
@@ -254,7 +254,7 @@ char* verifyFile(char fileName[], long* fsize){ //verifies a file with given fil
     //read file
     if((fp = fopen(fileName, "r")) != NULL){
         
-        fseek(fp, 0, SEEK_END); //getting file size (talvez usar fstat, como o stor disse)
+        fseek(fp, 0, SEEK_END); //getting file size 
         *fsize = ftell(fp); 
         fseek(fp, 0, SEEK_SET); 
 
@@ -368,7 +368,7 @@ void commandShowUID(){ //executes the showuid command
 }
 
 void commandGroups(char* message){ //executes the groups command
-    char* response = clientSendUDP(message,10000); //tamanho?
+    char* response = clientSendUDP(message,SIZE_GROUPS);  
     char com[4], gname[24];
     int numGroups, n, gid, mid;
 
@@ -403,7 +403,7 @@ void commandGroups(char* message){ //executes the groups command
 }
 
 void commandSubscribe(char* message){ //executes the subscribe command
-    char* GID = (char*) malloc(sizeof(char)* 3); //tirar malloc?
+    char  GID[3]; 
     
     char* response = clientSendUDP(message,SIZE_STRING);
     
@@ -438,7 +438,7 @@ void commandSubscribe(char* message){ //executes the subscribe command
 }
 
 void commandUnsubscribe(char* message){ //executes the unsubscribe command
-    //char* GID = (char*) malloc(sizeof(char)* 3); fuga de memoria
+    
     char* response = clientSendUDP(message,SIZE_STRING);
 
     if(strcmp("ERR\n",response)==0)
@@ -482,10 +482,10 @@ void commandShowGID(){ //executes the showgid command
 
 void commandMyGroups(char* message){ //executes the mgl command
     char* response;
-    char com[4], groupName[24];
+    char com[COM_SIZE], groupName[SIZE_GROUP_NAMES];
     int numGroups, n, gid, mid;
 
-    response = clientSendUDP(message,10000); //tamanho?
+    response = clientSendUDP(message,SIZE_GROUPS); 
         
     if(strcmp("ERR\n",response)==0){
         fprintf(stderr,"My_Groups error\n");
@@ -508,7 +508,7 @@ void commandMyGroups(char* message){ //executes the mgl command
     if(strcmp(com, "RGM")==0 && numGroups == 0){
         printf("No Groups Subscribed To!\n");
     }
-    else if(strcmp(com, "RGM")==0 && numGroups > 0 && numGroups <= 99){ //if everything is valid, displays the groups which the user is subscribed to 
+    else if(strcmp(com, "RGM")==0 && numGroups > 0 && numGroups <= MAX_GROUPS){ //if everything is valid, displays the groups which the user is subscribed to 
         printf("My Groups:\n");
         
         while(numGroups != 0){
@@ -527,7 +527,7 @@ void commandMyGroups(char* message){ //executes the mgl command
 void commandUList(char* message){ //executes the ul command
     char* response = clientSendTCP(message, NULL, 0);
     char* users = (char *) malloc(sizeof(char) * strlen(response));
-    char com[4], groupName[24], status[4];
+    char com[COM_SIZE], groupName[SIZE_GROUPS], status[COM_SIZE];
     int n, uid;
 
 
@@ -572,7 +572,7 @@ void commandUList(char* message){ //executes the ul command
 
 void commandPost(char* command){ //executes the post command
     char* response, *message, *data;
-    char com[4], text[242], fileName[24]; //tamanho user
+    char com[COM_SIZE], text[MAX_TEXT_SIZE], fileName[SIZE_GROUP_NAMES]; 
     int tsize;
     int msg = -1;
     long fsize = 0;
@@ -629,7 +629,7 @@ int getDigits(int m){ //auxiliary function that gets the length in digits of a c
 void commandRetrieve(char* command){ //executes the retrieve command
     char* response = clientSendTCP(command, NULL, 0);
     char* responseAux, *fileDir;
-    char com[4], status[4], mid[5], uid[6], fileName[25];
+    char com[COM_SIZE], status[COM_SIZE], mid[5], uid[6], fileName[25];
     int numMSG, n, tsize;
     long fsize;
     FILE* fp;
@@ -750,12 +750,12 @@ void processCommands(){
     char* buffer=(char*) malloc(sizeof(char)*1000);
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
     char* arg2=(char*) malloc(sizeof(char)*300);
-    char* arg1=(char*) malloc(sizeof(char)*300);// HARDCODED
+    char* arg1=(char*) malloc(sizeof(char)*300);
     int n;
 
     //VERIFICAR ARGUMENTOS
 
-    while(fgets(buffer,1000,stdin)){//----------------------------corrigir tamanho
+    while(fgets(buffer,1000,stdin)){
         n=sscanf(buffer,"%s %s %s",com,arg1,arg2); 
         
         if(n<1)
