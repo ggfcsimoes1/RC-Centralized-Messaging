@@ -9,41 +9,33 @@
 #include <string.h>
 #include <stdio.h>
 #include <iostream>
-#include <list>
-#include <iterator>
-#include <algorithm>
 #include <errno.h>
 #include <signal.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include "ServerUDP.hpp"
 
-
-
 using namespace std;
 
 int currentGroups = 0; //number of groups in the directory
 bool verboseMode = false;
 
-
-bool isUserSub(char* uid, char* gid){
+bool isUserSub(char* uid, char* gid){ //auxiliary function that checks if given uid is subbed to given gid
 	FILE *fp;
-	char* buffer=(char*) malloc(sizeof(char)*20);
+	char buffer[20];
 	sprintf(buffer,"GROUPS/%s/%s.txt",gid,uid);
-	if(fp=fopen(buffer,"r")){
+	if(fp = fopen(buffer,"r")){
 		fclose(fp);
-		free(buffer);
 		return true;
 	}
-	free(buffer);
 	return false;
 }
-bool verifyIDs(char* ID, int len){
-	int i=0;
-	int n=strlen(ID);
-	if(n!=len)
+bool verifyIDs(char* ID, int len){ //auxiliary function that validates given ID
+	int i = 0;
+	int n = strlen(ID);
+	if(n != len)
 		return false;
-	while(i<n){
+	while(i < n){
 		if(!isdigit(ID[i]))
 			return false;
 		i++;
@@ -52,163 +44,131 @@ bool verifyIDs(char* ID, int len){
 	return true;
 }
 
-bool verifyPassword(char* pass){
-	int i=0;
-	int n=strlen(pass);
-	if(n!= 8)
+bool verifyPassword(char* pass){ //auxiliary function that validates given pass
+	int i = 0;
+	int n = strlen(pass);
+	if(n != 8)
 		return false;
-	while(i<n){
+	while(i < n){
 		if(!isdigit(pass[i]) && !isalpha(pass[i]))
 			return false;
 		i++;
-	}
-	
+	}	
 	return true;
 }
 
-
-bool verifyUID(char* uid){
-	char* buffer;
+bool verifyUID(char* uid){ //auxiliary function that validates given uid
+	char buffer[12];
 	DIR *d;
 	if(verifyIDs(uid,5)){
-		buffer=(char*)malloc(sizeof(char)*12);
 		sprintf(buffer,"USERS/%s",uid);
-		if(d=opendir(buffer)){
+		if(d = opendir(buffer)){
 			closedir(d);
-			free(buffer);
 			return true;
 		}	
-		else{
-			free(buffer);
+		else{		
 			return false;
 		}
-			
-	}
-	else
-		return false;
-	
-}
-bool verifyGID(char* gid){
-	char* buffer;
-	DIR *d;
-	if(verifyIDs(gid,2)){
-		buffer=(char*)malloc(sizeof(char)*10);
-		sprintf(buffer,"GROUPS/%s",gid);
-		if(d=opendir(buffer)){
-			closedir(d);
-			free(buffer);
-			return true;
-		}
-		else{
-			free(buffer);
-			return false;
-		}
-	}
-	else
-		return false;
-}
-bool verifyMID(char* MID,char* gid){
-	DIR *d;
-	char* buffer;
-	if(verifyIDs(MID,4)){
-		buffer=(char*)malloc(sizeof(char)*12);
-		sprintf(buffer,"GROUPS/%s/MSG/%s",gid,MID);
-		if(d=opendir(buffer)){
-			closedir(d);
-			free(buffer);
-			return true;
-		}
-		else{
-			free(buffer);
-			return false;
-		}
-			
 	}
 	else
 		return false;
 }
 
-bool userLogged(char* uid){
+bool verifyGID(char* gid){ //auxiliary function that validates given gid
+	char buffer[10];
+	DIR *d;
+	if(verifyIDs(gid,2)){
+		sprintf(buffer,"GROUPS/%s",gid);
+		if(d = opendir(buffer)){
+			closedir(d);
+			return true;
+		}
+		else{		
+			return false;
+		}
+	}
+	else
+		return false;
+}
+
+bool verifyMID(char* MID,char* gid){ //auxiliary function that validates given mid
+	if(verifyIDs(MID,4)){
+		return true;
+	}
+	else
+		return false;
+}
+
+bool userLogged(char* uid){ //auxiliary function that validates given uid
 	FILE *fp;
-	char* buffer = (char*) malloc(sizeof(char) * SIZE_STRING);
+	char buffer[SIZE_STRING];
 
 	memset(buffer, 0, sizeof(buffer));
 	sprintf(buffer, "USERS/%s/%s_login.txt", uid, uid);
 
 	if((fp = fopen(buffer, "r")) == NULL){
-		free(buffer);
 		return false;
 	}
 
-	fclose(fp);
-	free(buffer);
+	fclose(fp);	
 	return true;
 }
 
-int setSocketUDP(){
+int setSocketUDP(){ //creates and binds the UDP socket
 	int fd,errcode;
 	ssize_t n;
 	struct addrinfo *res;
 	socklen_t addrlen;
 	struct addrinfo hints;
 	
-	fd=socket(AF_INET,SOCK_DGRAM,0); //UDP Socket
-	if (fd==-1) //error
-		exit(1);
+	if ((fd=socket(AF_INET,SOCK_DGRAM,0))==-1) //error creating socket
+		exit(EXIT_FAILURE);
 
 	memset(&hints,0,sizeof hints);
 	hints.ai_family=AF_INET; //IPV4
 	hints.ai_family=SOCK_DGRAM; //UDP socket
 	hints.ai_flags=AI_PASSIVE;
 
-	errcode=getaddrinfo(NULL, PORT, &hints, &res);
-	if(errcode!=0) //error
-		exit(1);
+	if((errcode=getaddrinfo(NULL, PORT, &hints, &res))!=0) //error fetching hostname
+		exit(EXIT_FAILURE);
 
-	n=bind(fd,res->ai_addr, res->ai_addrlen);
-	if(n==-1)
-		exit(1);
+	if((n=bind(fd,res->ai_addr, res->ai_addrlen))==-1) //error binding socket
+		exit(EXIT_FAILURE);
 	
 	freeaddrinfo(res);
 	return fd;
 }
 
-int setSocketTCP(){
+int setSocketTCP(){ //creates and binds the TCP socket
 	int fd, errcode;
     ssize_t n;
 	struct addrinfo *res;
     socklen_t addrlen;
     struct addrinfo hints;
     struct sockaddr_in addr;
-    char buffer[128];
-	char * buffer2;
     
-
-    fd = socket(AF_INET, SOCK_STREAM,0);
-    if(fd==-1) 
-		exit(1);
+    if((fd = socket(AF_INET, SOCK_STREAM,0))==-1) 
+		exit(EXIT_FAILURE);
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    errcode = getaddrinfo(NULL, PORT, &hints, &res);
-    if((errcode)!= 0) 
-		exit(1);
+    if((errcode = getaddrinfo(NULL, PORT, &hints, &res)) != 0) 
+		exit(EXIT_FAILURE);
 
-    n = bind(fd, res->ai_addr, res->ai_addrlen);
-    if(n == -1) 
-		exit(1);
+    if((n = bind(fd, res->ai_addr, res->ai_addrlen)) == -1) 
+		exit(EXIT_FAILURE);
 
     if(listen(fd,5) == -1) 
-		exit(1);
+		exit(EXIT_FAILURE);
 
 	freeaddrinfo(res);
 	return fd;
 }
 
-int receiveUDP(int fd){
+int receiveUDP(int fd){ //receives data from UDP connection
 	int errcode;
 	ssize_t n;
 	socklen_t addrlen;
@@ -218,27 +178,24 @@ int receiveUDP(int fd){
 	char host[NI_MAXHOST],service[NI_MAXSERV];
 
 	addrlen=sizeof(addr);
-	n=recvfrom(fd,buffer,128,0,(struct sockaddr*) &addr, &addrlen);
-	if(n==-1)
+	if((n=recvfrom(fd,buffer,128,0,(struct sockaddr*) &addr, &addrlen))==-1)
 		return -1;
+
 	bzero(buffer + n, sizeof(buffer + n));
 	if((errcode=getnameinfo((struct sockaddr*)&addr,addrlen,host,sizeof host,service,sizeof service,0))!=0)
 		fprintf(stderr,"error:getnameinfo: %s\n",gai_strerror(errcode));
-	else if (verboseMode){ //if the server is running with -v
+	else if (verboseMode) //if the server is running with -v
 		printf("sent by [%s:%s]\n",host,service);
-		//dar print no process commands do GID e UID, e a descricao do comando
-	}
 
 	buffer2 = processCommands(buffer, 0);
 	
-	n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen);
-	if(n==-1)
+	if((n=sendto(fd,buffer2,strlen(buffer2),0, (struct sockaddr*) &addr, addrlen))==-1)
 		return -1;
 
-	return 0;
+	return 0; //success
 }
 
-void receiveTCP(int fd){
+void receiveTCP(int fd){ //receives data from TCP connection
     int errcode, i = 1;
     ssize_t n;
 	long nread = 0;
@@ -247,7 +204,8 @@ void receiveTCP(int fd){
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 128) + 5));
+
+		message =(char*) realloc(message, sizeof(char) * ((i * 128) + 5)); //every iteration reallocate space for data
 
         if(i == 1){
 
@@ -260,30 +218,27 @@ void receiveTCP(int fd){
 				return;
 			}
 
-			nread+=4;
+			nread+=4; //increasing the pointer
         }
 
-		n=read(fd, message + nread , 128);
+		n=read(fd, message + nread, 128); //read 128 bytes 
 
-		printf("%ld\n", nread);
-
-		if(n == -1 && errno == EWOULDBLOCK){
+		if(n == -1 && errno == EWOULDBLOCK) //if the socket would normally block (no more data incoming), break the cycle
         	break;
-    	}
 
-		if(n != -1){
+		if(n != -1){ //otherwise, move the pointer n bytes ahead
 			nread+= n;
         	i++;
 		}
     }
-	message[nread]='\0'; //tem lixo no fim
+	message[nread]='\0'; //when the cycle ends, place '\0' to mark the end of the data
 
     processCommands(message, fd);
 	
 	free(message);
 }
 
-void sendTCP(char* buffer, int fd){
+void sendTCP(char* buffer, int fd){ // sends text buffer through TCP connection
 	ssize_t n, toWrite;
 	char *ptr;
 
@@ -292,54 +247,42 @@ void sendTCP(char* buffer, int fd){
 
     while(toWrite > 0){
         n=write(fd, ptr, toWrite);
-
         if(n<=0)
-            exit(1);
-
-        toWrite-= n;
-        ptr+= n;
+            exit(EXIT_FAILURE);
+        toWrite-= n; //decrease the amount of data to write
+        ptr+= n; //move the pointer n bytes ahead
     }
-
     free(buffer);
 }
 
-
-
-void sendFileTCP(FILE *fp, int fd, int fsize){
+void sendFileTCP(FILE *fp, int fd, int fsize){ //sends a file through TCP connection
 	char buffer[2048];
 	char*ptr;
-    long toSend, n1, n2 = 0,n3;
-
+    long toSend, n1, n2 = 0, n3;
 
     toSend = fsize;
-    while(toSend > 0) {
+    while(toSend > 0) { //while there's data to send...
         n1 = fread(buffer, 1, 2048, fp);
 		n3=n1;
-        printf("enviado:%ld\n",n1);
-
 		ptr = buffer;
-        while(n1>0){
+        while(n1>0){ //while the data read from buffer hasn't been sent...
 			if((n2 = write(fd, ptr, n1))!=-1){
-				printf("enviado 2:%ld\n",n2);
-				n1-=n2;
-				ptr+=n2;
-			}
-			
+				n1-=n2;	//decrease written data size from read data size
+				ptr+=n2; //move the pointer n2 bytes ahead
+			}	
 		}
-		n2 = 0;
-		        
+		n2 = 0;	        
         toSend-= n3;
-        
     }
 }
 
-void getNumberOfGroups(){
+void getNumberOfGroups(){ //auxiliary function that retrieves the number of groups 
 	DIR *d;
 	struct dirent *dir;
 	d = opendir("GROUPS");
 
-	if (d)	{
-		while ((dir = readdir(d)) != NULL)	{
+	if (d){
+		while ((dir = readdir(d)) != NULL){
 			if(dir->d_name[0]=='.')
 				continue;
 			if(strlen(dir->d_name)>2)
@@ -348,41 +291,35 @@ void getNumberOfGroups(){
 			if(currentGroups==99)
 				break;	
 		}
-		printf("Registered groups: %d\n", currentGroups); //tira isso, tira isso !
+		if(verboseMode) printf("Registered groups: %d\n", currentGroups);
 		closedir(d);
 	}
 }
 
-
-bool validatePassword(char* password, char* UID){
+bool validatePassword(char* password, char* UID){ //validates given password associated with given UID
 	FILE *fp;
-	bool verified=false;
-	char* pass=(char*)malloc(sizeof(char)*9);
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+	bool verified = false;
+	char pass[9];
+	char fileDirectory[SIZE_STRING];
 
 	sprintf(fileDirectory,"USERS/%s/%s_pass.txt",UID ,UID);
 
-	if((fp=fopen(fileDirectory,"r"))==NULL ){
-        free(pass);
-		free(fileDirectory);
+	if((fp=fopen(fileDirectory,"r")) == NULL ){ //if no file exists in dir (invalid UID)
         return verified;
     }
 
 	fscanf(fp,"%s\n",pass);
 
-	if(strcmp(pass,password)==0)
+	if(strcmp(pass,password) == 0)
 		verified=true;
 
 	fclose(fp);
-	free(pass);
-	free(fileDirectory);
-
 	return verified;
-
 }
-bool logout(char* UID){
 
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
+bool logout(char* UID){ //logs out a user with given UID
+
+	char fileDirectory[SIZE_STRING];
 	bool success = false;
 
 	sprintf(fileDirectory, "USERS/%s/%s_login.txt", UID, UID);
@@ -392,13 +329,10 @@ bool logout(char* UID){
 	if(rm == 0 || errno==ENOENT){
 		success = true;
 	}
-
-	free(fileDirectory);
 	return success;
 }
 
-
-int getNumberEntInDir(char* fileDir){
+int getNumberEntInDir(char* fileDir){ //auxiliary function that returns the number of entries in a directory
 	DIR *d;
 	struct dirent *dir;
 	int nDir = 0;
@@ -414,24 +348,20 @@ int getNumberEntInDir(char* fileDir){
 		closedir(d);
 		return nDir;
 	}
-	else{
+	else
 		return -1;
-	}
 }
 
-void comRegister(char* buffer, char* UID, char* pass){
+void comRegister(char* buffer, char* UID, char* pass){ //Registration command
 	
 	FILE *fp;
-	char* directory;
-	char* fileDirectory; 
+	char directory[12];
+	char fileDirectory[SIZE_STRING]; 
 
 	if(!verifyIDs(UID, 5) || !verifyPassword(pass)){
 		sprintf(buffer, "RRG NOK\n");
 		return;
 	}
-
-	directory = (char*) malloc(sizeof(char)* 12);
-	fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);//HARDCODEDs
 
 	mkdir("USERS",0700);
 	sprintf(directory, "USERS/%s", UID);
@@ -439,19 +369,13 @@ void comRegister(char* buffer, char* UID, char* pass){
 	if(mkdir(directory,0700)== 0){
 		sprintf(fileDirectory,"%s/%s_pass.txt",directory ,UID);
 		
-		if((fp = fopen(fileDirectory, "w+")) == NULL){
-			
+		if((fp = fopen(fileDirectory, "w+")) == NULL){	
 			sprintf(directory, "USERS/%s", UID);
 			remove(directory);
-
-			free(directory);
-			free(fileDirectory);
 			return;
 		}
 		fprintf(fp,"%s\n",pass);
-	
 		fclose(fp);
-	
 		sprintf(buffer, "RRG OK\n");
 
 	}
@@ -461,18 +385,14 @@ void comRegister(char* buffer, char* UID, char* pass){
 	else {
 		sprintf(buffer, "RRG NOK\n");
 	}
-	
-	free(directory);
-	free(fileDirectory);
 }
 
-void comUnregister(char* buffer, char* UID, char* pass){
-
+void comUnregister(char* buffer, char* UID, char* pass){ //Unregistration command
     DIR *d;
     struct dirent *dir;
     int i=0;
     char *GIDname = (char*) malloc(sizeof(char) * 30);
-    char *fileDirectory = (char*) malloc(sizeof(char) * SIZE_STRING);//HARDCODEDs
+    char *fileDirectory = (char*) malloc(sizeof(char) * SIZE_STRING);
 
     sprintf(buffer, "RUN NOK\n");
 
@@ -483,7 +403,7 @@ void comUnregister(char* buffer, char* UID, char* pass){
             sprintf(fileDirectory,"USERS/%s", UID);
 
             if(logout(UID) == false || rmdir(fileDirectory) != 0){
-                free(fileDirectory);
+				free(fileDirectory);
                 return;
             }
             d = opendir("GROUPS");
@@ -505,19 +425,18 @@ void comUnregister(char* buffer, char* UID, char* pass){
             }
             closedir(d);
             }
-
             sprintf(buffer, "RUN OK\n");
         }
         else
             sprintf(buffer, "ERR\n");
     }
-    free(fileDirectory);
+	free(fileDirectory);
 	free(GIDname);
 }
 
-void comLogin(char* buffer, char* UID, char* pass){
+void comLogin(char* buffer, char* UID, char* pass){ //login command
 	FILE *flog;
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+	char fileDirectory[SIZE_STRING];
 	
 	sprintf(buffer, "RLO NOK\n");
 
@@ -532,12 +451,9 @@ void comLogin(char* buffer, char* UID, char* pass){
 			fclose(flog);
 		}
 	}
-
-	free(fileDirectory);
 }
 
-void comLogout(char* buffer, char* UID, char* pass){
-
+void comLogout(char* buffer, char* UID, char* pass){ //logout command
 	sprintf(buffer, "ROU NOK\n");
 
 	if(verifyUID(UID) && validatePassword(pass, UID)){
@@ -548,7 +464,7 @@ void comLogout(char* buffer, char* UID, char* pass){
 	}
 }
 
-void comGroups(char* buffer){
+void comGroups(char* buffer){ //groups command
 	DIR *d;
 	struct dirent *dir;
 	int i=0;
@@ -589,12 +505,13 @@ void comGroups(char* buffer){
 	else
 		sprintf(buffer, "ERR\n");
 	
+	free(dirName);
 	free(GIDname);
 }
 
-bool createGroup(char *UID, char* GNAME){
+bool createGroup(char *UID, char* GNAME){ //auxiliary function from subscribe command - creates a new group
 	FILE* fp;
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+	char fileDirectory[SIZE_STRING];
 
 	mkdir("GROUPS", 0700);
 	currentGroups++; //increment group number
@@ -615,7 +532,6 @@ bool createGroup(char *UID, char* GNAME){
 				
 				if((fp = fopen(fileDirectory, "w+")) != NULL){
 					fclose(fp);
-					free(fileDirectory);
 					return true;
 				}
 
@@ -623,7 +539,7 @@ bool createGroup(char *UID, char* GNAME){
 				remove(fileDirectory);
 			}
 			
-			sprintf(fileDirectory, "GROUPS/%02d/MSG", currentGroups);
+			sprintf(fileDirectory, "GROUPS/%02d/MSG", currentGroups); //if an error occured, undo everything that has been done up until then
 			remove(fileDirectory);
 		}
 
@@ -631,13 +547,11 @@ bool createGroup(char *UID, char* GNAME){
 		remove(fileDirectory);
 	}
 
-	currentGroups--;
-
-	free(fileDirectory);
+	currentGroups--; //decrease group number if error occured
 	return false;
 }
 
-void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
+void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){ //subscribe command
 	
 	FILE *fp;
 	char fileDirectory1[128];
@@ -657,7 +571,7 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 	}
 	else if(strlen(GNAME) > 24){
 		for(int i= 0; i < strlen(GNAME); i++){
-			if(!isalpha(GNAME[i]) && !isdigit(GNAME[i]) && GNAME[i] != '_' && GNAME[i] != '-'){
+			if(!isalpha(GNAME[i]) && !isdigit(GNAME[i]) && GNAME[i] != '_' && GNAME[i] != '-'){ //verifiying group name
 				sprintf(buffer, "RGS E_GNAME\n");
 				return;
 			}
@@ -707,21 +621,19 @@ void comSubscribe(char* buffer, char* UID, char* GID, char* GNAME){
 		sprintf(buffer, "RGS E_FULL");
 }
 
-void comUnsubscribe(char* buffer, char* UID, char* GID){
-	char* fileDirectory = (char*) malloc(sizeof(char)*SIZE_STRING);
+void comUnsubscribe(char* buffer, char* UID, char* GID){ //unsubscribe command
+	char fileDirectory[SIZE_STRING];
 	int removeStatus;
 
 	sprintf(fileDirectory, "GROUPS/%s/%s.txt", GID, UID);
 
 	if(!verifyGID(GID)){ // check if GID is valid
 		sprintf(buffer, "RGU E_GRP\n");
-		free(fileDirectory);
 		return;
 	}
 
 	if(!verifyUID(UID) || !userLogged(UID) || !isUserSub(UID, GID)){ // check if UID is valid
 		sprintf(buffer, "RGU E_USR\n");
-		free(fileDirectory);
 		return;
 	}
 	
@@ -735,25 +647,24 @@ void comUnsubscribe(char* buffer, char* UID, char* GID){
 	else{
 		sprintf(buffer, "RGU NOK\n");
 	}
-
-	free(fileDirectory);
 	return;
 }
 
-void comMyGroups(char* buffer,char* uid){
+void comMyGroups(char* buffer,char* uid){ //mgl command
 	DIR *d;
 	struct dirent *dir;
-	int i=0,numGroups=0;
+	int i = 0,numGroups = 0;
 	FILE *fp;
-	char *GIDname = (char*) malloc(sizeof(char) * 30);
-	char* aux=(char*)malloc(sizeof(char)*10000);// -----------------Alterar valor
+	char* GIDname = (char*) malloc(sizeof(char) * 30);	
 	char* dirName = (char*) malloc(sizeof(char) * 60);
+	char* aux = (char*)malloc(sizeof(char)*2871); // jalee macro
+
 
 	if(!verifyUID(uid) || !userLogged(uid)){
-		sprintf(buffer, "RGM E_USR\n");
+		sprintf(buffer, "RGM E_USR\n");	
 		free(dirName);
-		free(aux);
 		free(GIDname);
+		free(aux);
 		return;
 	}
 
@@ -790,7 +701,7 @@ void comMyGroups(char* buffer,char* uid){
 
 				sprintf(dirName, "GROUPS/%s/MSG", dir->d_name);
 
-				sprintf(aux, "%s %s %s %04d", aux, dir->d_name, GIDname, getNumberEntInDir(dirName));	
+				sprintf(aux, "%s %s %s %04d", aux, dir->d_name, GIDname, getNumberEntInDir(dirName));	//aux is used to store the entire message
 			}
 			
 			++i;
@@ -808,13 +719,14 @@ void comMyGroups(char* buffer,char* uid){
 	}
 	else
 		sprintf(buffer, "ERR\n");
-	
+
+
 	free(dirName);
-	free(aux);
 	free(GIDname);
+	free(aux);
 }
 
-void comUList(char* buffer,char* gid){
+void comUList(char* buffer,char* gid){ //ul command
 	DIR *d;
 	struct dirent *dir;
 	FILE *fp;
@@ -864,7 +776,7 @@ void comUList(char* buffer,char* gid){
 		sprintf(buffer, "ERR\n");
 }
 
-char* getFileName(char* fileDir){
+char* getFileName(char* fileDir){ //auxiliary function that finds a file in a given fileDir
 	DIR *d;
 	struct dirent *dir;
 
@@ -877,7 +789,7 @@ char* getFileName(char* fileDir){
 			
 			if (strcmp(dir->d_name, "A U T H O R.txt") == 0 || strcmp(dir->d_name, "T E X T.txt") == 0)
 				continue;
-			else
+			else //not named A U T H O R.txt or T E X T.txt
 				break;
 		}
 		closedir(d);
@@ -886,7 +798,7 @@ char* getFileName(char* fileDir){
 	return NULL;
 }
 
-void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
+void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){ //adds a message to given fileDir
 	char textDIR[strlen(fileDir) + 18], authorDIR[strlen(fileDir) + 22];
 	FILE* fp;
 	
@@ -901,15 +813,15 @@ void addMSG(char* fileDir, int msg, char* uid, char* text, int tsize){
 	sprintf(authorDIR, "%s/%04d/A U T H O R.txt", fileDir, msg);
 
 	fp = fopen(textDIR, "w+");
-	fwrite(text, 1, tsize, fp);
+	fwrite(text, 1, tsize, fp); //writes text into tsize
 	fclose(fp);
 
 	fp = fopen(authorDIR, "w+");
-	fwrite(uid, 1, 5, fp);
+	fwrite(uid, 1, 5, fp); //uid is 5 bytes long
 	fclose(fp);
 }
 
-void addExtraFile(int fd, char* fileDir, int msg){
+void addExtraFile(int fd, char* fileDir, int msg){ //adds file fd to given fileDir
 	int n, nread = 0, i = 0;
 	long fsize;
 	char fileName[25], command[100], buffer[512];
@@ -946,14 +858,13 @@ void addExtraFile(int fd, char* fileDir, int msg){
 
 		while(fsize > 512) {
 			if((n = read(fd, buffer, 512)) != -1){
-
 				fwrite(buffer, 1, n, fp);
 				fsize -= n;
 			}
 		}
-		while(fsize > 0) {
-			if((n = read(fd, buffer, fsize)) != -1){
 
+		while(fsize > 0) { // to avoid over-reading, stop reading 512 bytes if the filesize is lower than 512
+			if((n = read(fd, buffer, fsize)) != -1){
 				fwrite(buffer, 1, n, fp);
 				fsize -= n;
 			}
@@ -963,7 +874,7 @@ void addExtraFile(int fd, char* fileDir, int msg){
 	}
 }
 
-void comPost(int fd){
+void comPost(int fd){ //command post
 	char uid[6], gid[3];
 	char command[100], text[241], fileDir[50];
 	char *buffer = (char*) malloc(sizeof(char) * 50);
@@ -979,9 +890,8 @@ void comPost(int fd){
 		if((n = read(fd, command + nread, 1)) != -1){
 			if(command[nread] == ' '){
 				i++;
-			}
-			
-			if(i == 3){
+			}	
+			if(i == 3){ //found the 3rd whitespace...
 				break;
 			}
 			nread += n;
@@ -989,8 +899,6 @@ void comPost(int fd){
 	}
 
 	n = sscanf(command, "%s %s %d", uid, gid, &tsize);
-
-	printf("%s %s %d\n", uid, gid, tsize);
 
 	if(n < 3){
 		sprintf(buffer, "ERR\n");
@@ -1013,23 +921,20 @@ void comPost(int fd){
 			nread += n;
 		}
 	}
-
-	printf("%s<\n", text);
 	
 	sprintf(fileDir, "GROUPS/%s/MSG", gid);
 
 	msg = getNumberEntInDir(fileDir);
 
-	addMSG(fileDir, msg + 1, uid, text, tsize);
-	addExtraFile(fd, fileDir, msg + 1);
+	addMSG(fileDir, msg + 1, uid, text, tsize);  //creating the new file
+	addExtraFile(fd, fileDir, msg + 1); 
 
 	sprintf(buffer, "RPT %04d\n", msg +1);
-	printf("%s\n",buffer);
-
+	
 	sendTCP(buffer, fd);
 }
 
-int getMsgToSend(int m[], char* gid, int nMid){
+int getMsgToSend(int m[], char* gid, int nMid){ //gets the number of valid messages to send
 	int numberOfMSG = 0;
 	int lastMID;
 	char *fileDir = (char*) malloc(sizeof(char) * 80);
@@ -1072,7 +977,7 @@ int getMsgToSend(int m[], char* gid, int nMid){
 	return numberOfMSG;
 }
 
-void comRetrieve(char* uid, char* gid, char* mid, int fd){
+void comRetrieve(char* uid, char* gid, char* mid, int fd){ //command retrieve
 	int msgRead = 0, n, nMid = atoi(mid);
 	int tsize, m[20];
 	long fsize;
@@ -1090,9 +995,7 @@ void comRetrieve(char* uid, char* gid, char* mid, int fd){
 		return;
 	}
 
-	//printf("%s\n", command);
-
-	if((msgRead = getMsgToSend(m, gid, nMid)) == 0){
+	if((msgRead = getMsgToSend(m, gid, nMid)) == 0){ //determines messages to be sent, saving the ID's in an array
 		strcpy(message, "RRT EOF 0\n");
 		sendTCP(message, fd);
 		return;
@@ -1103,10 +1006,9 @@ void comRetrieve(char* uid, char* gid, char* mid, int fd){
 
 	sprintf(message, "RRT OK %d", msgRead);
 
-	printf("msg: %s\n", message);
 	sendTCP(message, fd);
 
-	for(int i = 0; i < msgRead; i++){
+	for(int i = 0; i < msgRead; i++){ //retrieves stored messages using the mid's previously retrieved
 
 		message = (char*) malloc(sizeof(char) * 340);
 
@@ -1116,8 +1018,6 @@ void comRetrieve(char* uid, char* gid, char* mid, int fd){
 		memset(fileName, 0, sizeof(fileName));
 
 		sprintf(bufferAux, "GROUPS/%s/MSG/%04d/A U T H O R.txt", gid, m[i]);
-
-		printf("m[i]: %d\n", m[i]);
 		
 		if((fp = fopen(bufferAux, "r")) != NULL){
 			fread(author, 1, 5, fp);
@@ -1154,32 +1054,24 @@ void comRetrieve(char* uid, char* gid, char* mid, int fd){
 				fseek(fp, 0, SEEK_END); 
 				fsize = ftell(fp); 
 				fseek(fp, 0, SEEK_SET); 	
-
 				sprintf(message, "%s / %s %ld ", message, fileName, fsize);
-
-				//printf("msg: %s<\n", message);
-
 				sendTCP(message, fd);
 				sendFileTCP(fp, fd, fsize);
 				fclose(fp);
 			}
 		}
 		else{
-			//printf("msg: %s<\n", message);
-
 			sendTCP(message, fd);
 		}
 
 		free(text);
 	}
 
-	//sendTCP(end, fd);// send '\n'
-
 	free(fileName);
 	free(bufferAux);
 }
 
-char* processCommands(char* command, int fd){
+char* processCommands(char* command, int fd){ //parses the received messages and executes the commands accordingly
 	char* buffer2;
     char* com = (char*) malloc(sizeof(char)*SIZE_STRING);
 	char* arg1=(char*) malloc(sizeof(char)*SIZE_STRING);
@@ -1187,9 +1079,7 @@ char* processCommands(char* command, int fd){
 	char* arg3=(char*) malloc(sizeof(char)*SIZE_GROUP_NAMES);
     char* buffer=(char*) malloc(sizeof(char)*SIZE_STRING);
     int n;
-
-
-
+	
     n=sscanf(command,"%s",com); 
 
     if(n<1)
@@ -1238,9 +1128,8 @@ char* processCommands(char* command, int fd){
 	else if(strcmp(com,"GLS")==0){
 		
 		if(n==1){
-			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
+			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));
         	comGroups(buffer2);
-
 			free(com);
 			free(arg1);
 			free(arg2);
@@ -1274,7 +1163,7 @@ char* processCommands(char* command, int fd){
 		n=sscanf(command, "%s %s\n",com, arg1);
 
 		if(n==2){
-			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));// TEST WITH 99 GROUPS
+			buffer2 = (char*) malloc(sizeof(char)*(7 + (currentGroups)*(24 + 4)));
 			comMyGroups(buffer2,arg1);
 
 			free(com);
@@ -1290,7 +1179,7 @@ char* processCommands(char* command, int fd){
 		n=sscanf(command, "%s %s\n",com, arg1);
 
 		if(n==2){
-			comUList(buffer,arg1);//-----------------AJUSTAR BUFFER
+			comUList(buffer,arg1);
 		}
 		else
 			sprintf(buffer, "ERR\n");
@@ -1384,7 +1273,7 @@ int main(int argc, char *argv[]){
 				close(fdTCP);
 
 				int flags = fcntl(newfd, F_GETFL);
-				fcntl(newfd, F_SETFL, flags | O_NONBLOCK);
+				fcntl(newfd, F_SETFL, flags | O_NONBLOCK); //setting socket to non blocking
 
 				receiveTCP(newfd);
 
