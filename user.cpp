@@ -161,7 +161,7 @@ void fileSendTCP(char* filename, long fsize, int fd){
     while(toSend > 0) {
         n = fread(buffer, 1, 1024, fp);
         
-        n = write(fd, buffer, n);
+        while((n = write(fd, buffer, n)) == -1){}
         printf("enviado:%ld\n",n);
         toSend-= n;
         bzero(buffer, 1024);

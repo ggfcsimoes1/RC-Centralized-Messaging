@@ -250,7 +250,7 @@ void receiveTCP(int fd){
     message = NULL;
 
     while(1){
-		message =(char*) realloc(message, sizeof(char) * ((i * 512) + 1));
+		message =(char*) realloc(message, sizeof(char) * ((i * 128) + 1));
 
         if(i == 1){
 
@@ -258,19 +258,18 @@ void receiveTCP(int fd){
 			
         }
 
-		n=read(fd, message + nread , 512);
+		n=read(fd, message + nread , 128);
 
 		printf("%ld\n", nread);
 
 		if(n == -1 && errno == EWOULDBLOCK){
         	break;
     	}
-		else if(n == -1){
-			exit(1);
-		}
 
-        nread+= n;
-        i++;
+		if(n != -1){
+			nread+= n;
+        	i++;
+		}
     }
 	message[nread]='\0'; //tem lixo no fim
 	
@@ -314,22 +313,35 @@ void sendTCP(char* buffer, int fd){
 
 
 void sendFileTCP(FILE *fp, int fd, int fsize){
-	char* buffer = (char*) malloc(sizeof(char)*2048);
-    long toSend, n1, n2;
+	char buffer[2048];
+	char*ptr;
+    long toSend, n1, n2 = 0,n3;
+	/*FILE* fp1;
+	fp1= fopen("Rome.jpg", "w+");*/
 
-    bzero(buffer, 2048); 
+
+    
 
     toSend = fsize;
     while(toSend > 0) {
         n1 = fread(buffer, 1, 2048, fp);
+		n3=n1;
         printf("enviado:%ld\n",n1);
-        while((n2 = write(fd, buffer, n1)) == -1){}
-        
-        toSend-= n2;
-        bzero(buffer, 2048);
-    }
 
-	free(buffer);
+		ptr = buffer;
+        while(n1>0){
+			if((n2 = write(fd, ptr, n1))!=-1){
+				printf("enviado 2:%ld\n",n2);
+				n1-=n2;
+				ptr+=n2;
+			}
+			
+		}
+		n2 = 0;
+		        
+        toSend-= n3;
+        
+    }
 }
 
 void getNumberOfGroups(){
@@ -1301,6 +1313,7 @@ int main(int argc, char *argv[]){
 	socklen_t addrlen;
 	fd_set rfds;
 	pid_t pid;
+	char wait[10];
 
 	memset(&action, 0, sizeof action);
 	action.sa_handler = SIG_IGN;
@@ -1350,6 +1363,9 @@ int main(int argc, char *argv[]){
 
 				receiveTCP(newfd);
 
+				printf("parou aqui\n");
+				//fgets(wait, 10, stdin);
+				
 				close(newfd);
 				exit(0);
 			}
